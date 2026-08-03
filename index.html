@@ -606,10 +606,15 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .pavatar{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;
   font-size:var(--t-2xl);font-weight:800;color:var(--ink)}
 .profcard small{font-size:var(--t-xs);color:var(--muted);font-weight:500}
-.profdel{position:absolute;top:var(--s1);right:var(--s1);background:rgba(6,8,11,.4);border:none;
-  color:var(--n-100);border-radius:var(--r1);font-size:var(--t-xs);line-height:1;padding:var(--s1) var(--s2);
-  cursor:pointer;opacity:.7}
-.profdel:hover{opacity:1;background:var(--bad)}
+/* El boton iba VACIO: sin texto y sin ::before, medía 0x0 px. Existia en el DOM
+   y era intocable, asi que borrar un solo usuario parecia imposible y la gente
+   acababa en "Borrar cuenta", que si arrasa con todo. Ahora lleva la aspa dentro
+   y 44px, que es el minimo tactil de las guias de Apple y Google. */
+.profdel{position:absolute;top:var(--s1);right:var(--s1);background:rgba(6,8,11,.55);border:none;
+  color:var(--n-100);border-radius:var(--r1);font-size:var(--t-sm);line-height:1;
+  min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;opacity:.85;z-index:2}
+.profdel:hover,.profdel:focus-visible{opacity:1;background:var(--bad);color:#fff}
 .profcard.new{border-style:dashed;border-color:var(--acc-line)}
 .profcard.new .pavatar{background:var(--card2);color:var(--accent);font-size:var(--t-2xl)}
 .nubebox{margin-top:var(--s4);padding-top:var(--s4);border-top:1px solid var(--line);text-align:left}
@@ -1902,10 +1907,31 @@ function askResolve(v){
 async function deleteUser(name, ev){
   if(ev) ev.stopPropagation();
   if(Object.keys(PROFILES).length<=1){ toast("Debe quedar al menos un usuario"); return; }
+  /* Si el atleta tiene copia en la nube hay que borrarla TAMBIEN. Sin esto el
+     borrado se deshacia solo: nubeBajar() lo volvia a descargar en la siguiente
+     sincronizacion y ademas lo sacaba de atlas_deleted. Se avisa antes, porque
+     borrar en un movil y que desaparezca del otro no es obvio. */
+  const enNube = !!nubeIds()[name];
   const okGo = await askConfirm(
-    `Vas a borrar a <b>${name}</b>y todos sus datos: series registradas, fotos de progreso, mediciones y su rutina.\n\nEsto no se puede deshacer.`,
+    `Vas a borrar a <b>${name}</b>y todos sus datos: series registradas, fotos de progreso, mediciones y su rutina.`
+    + (enNube ? `<br><br>Tiene copia en la nube, así que <b>también desaparecerá de tus otros dispositivos</b>.` : '')
+    + `\n\nEsto no se puede deshacer.`,
     "Sí, borrar "+name, "Borrar usuario");
   if(!okGo) return;
+
+  if(enNube){
+    if(!nubeDentro()){
+      toast('Inicia sesión para borrarlo también de la nube');
+      return;
+    }
+    try{
+      await nubeFetch('/rest/v1/atletas?id=eq.'+nubeIds()[name].id, {method:'DELETE'});
+      const m=nubeIds(); delete m[name]; localStorage.setItem(NUBE_IDS, JSON.stringify(m));
+    }catch(e){
+      toast('No se pudo borrar en la nube: '+e.message);
+      return;                       // no se borra en local: quedarian descuadrados
+    }
+  }
   // borra sus fotos de IndexedDB
   try{
     const raw=JSON.parse(localStorage.getItem("recomp_v1_"+name)||"{}");
@@ -1915,11 +1941,13 @@ async function deleteUser(name, ev){
   // saca de la lista (si es de los que vienen de fábrica, lo marcamos como borrado)
   let extra={}; try{ extra=JSON.parse(localStorage.getItem("atlas_profiles")||"{}"); }catch(e){}
   if(extra[name]){ delete extra[name]; localStorage.setItem("atlas_profiles", JSON.stringify(extra)); }
-  if(DEFAULT_PROFILES[name]){
-    let del=[]; try{ del=JSON.parse(localStorage.getItem("atlas_deleted")||"[]"); }catch(e){}
-    if(!del.includes(name)) del.push(name);
-    localStorage.setItem("atlas_deleted", JSON.stringify(del));
-  }
+  /* La lapida se pone SIEMPRE, no solo para los de fabrica. DEFAULT_PROFILES esta
+     vacio desde que los perfiles dejaron de venir puestos, asi que esta rama no
+     entraba nunca y el rescate de loadProfilesList podia readoptar al borrado si
+     quedaba cualquier rastro de su clave. */
+  let del=[]; try{ del=JSON.parse(localStorage.getItem("atlas_deleted")||"[]"); }catch(e){}
+  if(!del.includes(name)) del.push(name);
+  localStorage.setItem("atlas_deleted", JSON.stringify(del));
   loadProfilesList();
   if(PROFILE===name){                          // si borraste el usuario activo, entra al primero que quede
     PROFILE=""; localStorage.removeItem("recomp_profile");
@@ -3171,7 +3199,7 @@ function renderProfiles(){
     const c=PROFILES[name];
     const cur = name===PROFILE;
     return `<div class="profcard ${cur?'cur':''}" onclick="selectProfile('${name}')">
-      <button class="profdel" title="Borrar usuario" onclick="deleteUser('${name}',event)"></button>
+      <button class="profdel" title="Borrar ${name}" aria-label="Borrar ${name}" onclick="deleteUser('${name}',event)">✕</button>
       <div class="pavatar" style="background:${c}">${name[0]}</div>
       ${name}
       <small>${cur?'usuario actual':'tocar para entrar'}</small>
@@ -12558,6 +12586,21 @@ function botSelfTest(){
   ok(botRecomienda('me duele el hombro al entrenar')===null, 'se queda con una lesión');
   ok(botRecomienda('cual es el mejor momento para entrenar pierna')===null, 'se queda con una de horario');
   ok(botRecomienda('que dice la ciencia de los ejercicios de pecho')===null, 'se queda con una de evidencia');
+  /* El boton de borrar usuario tiene que verse y poder tocarse: media 0x0. */
+  (function(){
+    const prev=$("#profiles").innerHTML;
+    const extra=JSON.parse(localStorage.getItem('atlas_profiles')||'{}');
+    const bak=JSON.stringify(extra);
+    extra['__t1__']='#00d29a'; extra['__t2__']='#ff7eb6';
+    localStorage.setItem('atlas_profiles', JSON.stringify(extra));
+    loadProfilesList(); renderProfiles();
+    const b=$("#profiles").querySelector('.profdel');
+    const r=b?b.getBoundingClientRect():{width:0,height:0};
+    localStorage.setItem('atlas_profiles', bak);
+    loadProfilesList(); $("#profiles").innerHTML=prev;
+    ok(b && b.textContent.trim(), 'el boton de borrar usuario esta vacio');
+    ok(r.width>=44 && r.height>=44, 'el boton de borrar usuario no llega al minimo tactil de 44px: '+r.width+'x'+r.height);
+  })();
   /* Los huecos de charla: ninguno puede acabar en la puerta de dominio. */
   ok(botEsCharla('gracias')==='gracias' && botEsCharla('muchas gracias')==='gracias', 'no reconoce un gracias');
   ok(botEsCharla('ok')==='vale' && botEsCharla('vale')==='vale' && botEsCharla('perfecto')==='vale', 'no reconoce un acuse de recibo');
