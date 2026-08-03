@@ -12598,12 +12598,16 @@ function botSelfTest(){
     /* Se mira el CSS calculado, NO getBoundingClientRect: el modal de perfiles
        puede estar cerrado y entonces el rect es 0x0 aunque la regla este bien.
        La primera version de esta comprobacion fallaba justo por eso. */
-    const cs=b?getComputedStyle(b):{minWidth:'0px',minHeight:'0px'};
+    /* Los valores se COPIAN aqui, antes de tocar el DOM: getComputedStyle
+       devuelve un objeto vivo y en cuanto se destruye el elemento pasa a
+       devolver cadenas vacias. Leerlo despues del innerHTML daba "x". */
+    const cs=b?getComputedStyle(b):null;
+    const mw=cs?parseInt(cs.minWidth)||0:0, mh=cs?parseInt(cs.minHeight)||0:0;
+    const hayAspa=!!(b && b.textContent.trim());
     localStorage.setItem('atlas_profiles', bak);
     loadProfilesList(); $("#profiles").innerHTML=prev;
-    ok(b && b.textContent.trim(), 'el boton de borrar usuario esta vacio');
-    ok(parseInt(cs.minWidth)>=44 && parseInt(cs.minHeight)>=44,
-       'el boton de borrar usuario no llega al minimo tactil de 44px: '+cs.minWidth+'x'+cs.minHeight);
+    ok(hayAspa, 'el boton de borrar usuario esta vacio');
+    ok(mw>=44 && mh>=44, 'el boton de borrar usuario no llega al minimo tactil de 44px: '+mw+'x'+mh);
   })();
   /* Los huecos de charla: ninguno puede acabar en la puerta de dominio. */
   ok(botEsCharla('gracias')==='gracias' && botEsCharla('muchas gracias')==='gracias', 'no reconoce un gracias');
