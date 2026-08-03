@@ -1061,6 +1061,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
         <button onclick="exportData()">Exportar datos</button>
         <button onclick="exportPrompt()">Texto para asistente</button>
         <button onclick="importData()">Importar</button>
+        <button onclick="importarAtleta()">Añadir atleta de otro móvil</button>
         <button onclick="restoreBackup()">Restaurar copia</button>
         <button onclick="resetData()">Borrar todo</button>
       </div>
@@ -2653,6 +2654,9 @@ function dataURLABlob(u){
 }
 async function exportData(){
   const out=JSON.parse(JSON.stringify(DB));
+  /* El nombre viaja DENTRO del archivo desde aqui. Antes solo estaba en el nombre
+     del fichero, y en cuanto alguien lo reenvia por WhatsApp se pierde. */
+  out.__nombre=PROFILE||'';
   out.__fotos={}; let n=0;
   if((DB.photos||[]).length) toast("Preparando backup con fotos…");
   for(const p of (DB.photos||[])){
@@ -2727,6 +2731,78 @@ function exportPrompt(){
     ()=>toast("Texto descargado y copiado "), ()=>toast("Texto descargado ")); }
   catch(e){ toast("Texto descargado "); }
 }
+/* =====================  TRAER A ALGUIEN DE OTRO MOVIL =====================
+   El hueco que dejaba importData(): aquel hace DB=o y te machaca a TI, asi que
+   sirve de copia de seguridad pero nunca para juntar a dos personas. Cada uno
+   hace su test en su telefono, exporta, lo manda por donde sea, y el otro lo mete
+   aqui como atleta NUEVO sin tocar el suyo.
+
+   Con el dentro se encienden solos los dos modulos que ya existian y que hasta
+   ahora solo servian si los dos perfiles nacian en el mismo movil:
+     · "Entrenar en pareja" -> que dia conviene coincidir y cuanto musculo compartis
+     · Modo duo             -> el mismo ejercicio, turnandose las series
+
+   Es una FOTO, no una sincronizacion: si ella entrena y quieres sus datos nuevos,
+   te reenvia el archivo y lo vuelves a importar encima. Sincronizar de verdad
+   pedia servidor y cuentas cruzadas; para entrenar juntos una semana no compensa. */
+function guardarAtletaImportado(nombre, o){
+  nombre=String(nombre||'').trim().slice(0,20);
+  if(!nombre) throw new Error('hace falta un nombre');
+  if(nombre===PROFILE) throw new Error('ese es tu propio nombre');
+  const d=JSON.parse(JSON.stringify(o||{}));
+  delete d.__fotos; delete d.__nombre;
+  d.logs=d.logs||{}; d.done=d.done||{}; d.body=d.body||[]; d.oneRM=d.oneRM||{}; d.photos=d.photos||[];
+  localStorage.setItem('recomp_v1_'+nombre, JSON.stringify(d));
+  /* Si ese nombre estaba en la lapida de borrados, se levanta: lo acabas de
+     traer a proposito y si no, loadProfilesList lo volveria a esconder. */
+  try{
+    const del=JSON.parse(localStorage.getItem('atlas_deleted')||'[]').filter(n=>n!==nombre);
+    localStorage.setItem('atlas_deleted', JSON.stringify(del));
+  }catch(e){}
+  addProfileEntry(nombre);
+  return nombre;
+}
+
+function importarAtleta(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange=()=>{
+    const f=inp.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=async ()=>{
+      let o;
+      try{ o=JSON.parse(r.result); }catch(e){ toast('Archivo invalido'); return; }
+      if(!o || typeof o!=='object' || !Array.isArray(o.plan) || !o.plan.length){
+        toast('Ese archivo no lleva ninguna rutina dentro'); return;
+      }
+      /* Archivos nuevos traen __nombre. Los viejos, del nombre del fichero
+         (AtlasIA_Yeimy_2026-08-02.json). Si no hay ni eso, un generico. */
+      const nombre = o.__nombre || ((f.name.match(/^AtlasIA_(.+?)_\d{4}-/)||[])[1]) || 'Invitado';
+      if(nombre===PROFILE){
+        toast('Ese archivo es tuyo: usa "Importar" para restaurarlo'); return;
+      }
+      if(PROFILES[nombre]){
+        const ok=await askConfirm(
+          `Ya tienes a <b>${duoEsc(nombre)}</b>en este movil.<br><br>`+
+          `Si sigues, se reemplazan sus datos por los del archivo. Es lo que quieres `+
+          `si te ha reenviado una version mas nueva.`,
+          'Actualizar '+nombre, 'Ya existe');
+        if(!ok) return;
+      }
+      const fotos=o.__fotos||{};
+      try{ guardarAtletaImportado(nombre, o); }
+      catch(e){ toast(e.message); return; }
+      let n=0;
+      for(const id of Object.keys(fotos)){
+        try{ await fotoGuardarLocal(id, dataURLABlob(fotos[id])); n++; }catch(e){}
+      }
+      renderProfiles();
+      toast(`${nombre} anadido${n?` \u00b7 ${n} foto${n===1?'':'s'}`:''}`);
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
 function importData(){
   const inp=document.createElement("input"); inp.type="file"; inp.accept=".json";
   inp.onchange=()=>{const f=inp.files[0];const r=new FileReader();
@@ -12586,6 +12662,22 @@ function botSelfTest(){
   ok(botRecomienda('me duele el hombro al entrenar')===null, 'se queda con una lesión');
   ok(botRecomienda('cual es el mejor momento para entrenar pierna')===null, 'se queda con una de horario');
   ok(botRecomienda('que dice la ciencia de los ejercicios de pecho')===null, 'se queda con una de evidencia');
+  /* Traer a otro atleta NO puede tocar tus datos: es justo lo que hacia mal
+     importData() y por lo que no se podian juntar dos tests. */
+  (function(){
+    const mio=localStorage.getItem('recomp_v1_'+PROFILE);
+    const bakP=localStorage.getItem('atlas_profiles');
+    const n=guardarAtletaImportado('__invitado__', {plan:[{wd:1,ex:[]}], logs:{a:1}});
+    ok(n==='__invitado__', 'no guarda al atleta importado');
+    ok(localStorage.getItem('recomp_v1___invitado__'), 'el atleta importado no tiene datos propios');
+    ok(localStorage.getItem('recomp_v1_'+PROFILE)===mio, 'la importacion ha pisado TUS datos');
+    ok(PROFILES['__invitado__'], 'el atleta importado no sale en la lista');
+    let err=null; try{ guardarAtletaImportado(PROFILE, {plan:[]}); }catch(e){ err=e; }
+    ok(err, 'deja importar encima de ti mismo');
+    localStorage.removeItem('recomp_v1___invitado__');
+    if(bakP===null) localStorage.removeItem('atlas_profiles'); else localStorage.setItem('atlas_profiles', bakP);
+    loadProfilesList();
+  })();
   /* El boton de borrar usuario tiene que verse y poder tocarse: media 0x0. */
   (function(){
     const prev=$("#profiles").innerHTML;
