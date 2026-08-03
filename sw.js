@@ -19,7 +19,13 @@
      y WebLLM ya tiene su propia cache.
 */
 
-const VERSION = 'atlas-v1';
+/* ⚠ SUBE ESTE NUMERO EN CADA DESPLIEGUE QUE TOQUE index.html, el manifiesto o
+   los iconos. No es decorativo: `activate` borra las caches cuyo nombre no sea
+   este, asi que mientras no cambie el movil sigue sirviendo la copia vieja y da
+   igual lo que haya en el servidor.
+   Se quedo en 'atlas-v1' durante ocho despliegues y el sintoma fue justo ese:
+   iconos y textos antiguos en un movil ya instalado. */
+const VERSION = 'atlas-v2-20260803';
 /* Lo que espera a la red TENIENDO copia guardada. Corto a proposito: pasado esto
    abrir la app importa mas que abrir la ultima version. */
 const RED_MS  = 2500;
