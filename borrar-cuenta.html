@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Eliminar mi cuenta · Atlas IA</title>
+<meta name="theme-color" content="#0e1014">
+<meta name="description" content="Cómo eliminar tu cuenta de Atlas IA y todos tus datos, con o sin la aplicación instalada.">
+<style>
+:root{--bg:#0e1014;--bg2:#151a22;--card:#1a1f28;--line:#2b3340;--txt:#eef2f8;
+      --muted:#a3aebc;--accent:#00d29a;--bad:#ff6b6b;--warn:#ffb454;--ink:#04120c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding:24px 20px 64px}
+main{max-width:620px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.02em}
+h2{font-size:17px;margin:30px 0 8px}
+.fecha{color:var(--muted);font-size:13px;margin:0 0 26px}
+.caja{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0}
+.caja.aviso{border-color:var(--warn);background:rgba(255,180,84,.07)}
+ol{padding-left:20px} li{margin:7px 0}
+label{display:block;font-size:13px;color:var(--muted);margin:14px 0 5px}
+input,textarea{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
+  border-radius:10px;padding:13px;font-size:15px;font-family:inherit;min-height:48px}
+textarea{min-height:96px;resize:vertical}
+button{width:100%;margin-top:16px;min-height:50px;border:none;border-radius:12px;
+  background:var(--bad);color:#fff;font-weight:700;font-size:15px;font-family:inherit;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+a{color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}
+.ok{color:var(--accent)} .no{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Eliminar mi cuenta</h1>
+<p class="fecha">Atlas IA · dos formas de hacerlo</p>
+
+<h2>1 · Desde la aplicación (inmediato)</h2>
+<div class="caja">
+<ol>
+  <li>Abre Atlas IA.</li>
+  <li>Toca tu <b>avatar</b>, arriba a la izquierda.</li>
+  <li>Abajo del todo, <b>Eliminar mi cuenta y mis datos</b>.</li>
+  <li>Confirma dos veces: la segunda te pedirá escribir <b>BORRAR</b>.</li>
+</ol>
+<p style="margin:6px 0 0">Se borra al momento. No hay vuelta atrás.</p>
+</div>
+
+<h2>2 · Sin la aplicación instalada</h2>
+<p>
+Rellena esto y se abrirá tu programa de correo con la solicitud ya escrita:
+<b>solo tienes que enviarla</b>. Si no se abre, escribe directamente a
+<a href="mailto:emnovag@gmail.com">emnovag@gmail.com</a> con el asunto
+«Eliminar mi cuenta de Atlas IA».
+</p>
+<p>
+Desde que llega la solicitud, tu cuenta se borra en un plazo máximo de
+<b>30 días</b>, normalmente en menos de 72 horas, y recibirás confirmación en ese
+mismo correo.
+</p>
+
+<form id="f" onsubmit="return enviar(event)">
+  <label for="correo">Correo de tu cuenta de Atlas IA</label>
+  <input id="correo" type="email" required placeholder="tu@correo.com" autocomplete="email">
+
+  <label for="motivo">Motivo (opcional)</label>
+  <textarea id="motivo" placeholder="Nos ayuda a mejorar, pero no es obligatorio."></textarea>
+
+  <label for="confirmo">Escribe <b>BORRAR</b> para confirmar</label>
+  <input id="confirmo" autocomplete="off" autocapitalize="characters" spellcheck="false"
+         placeholder="BORRAR" style="text-align:center;letter-spacing:.12em">
+
+  <button id="btn" type="submit" disabled>Solicitar el borrado</button>
+</form>
+
+<div class="caja aviso" id="salida" hidden></div>
+
+<h2>Qué se borra exactamente</h2>
+<table>
+<tr><th>Dato</th><th>¿Se borra?</th></tr>
+<tr><td>Tu cuenta y tu correo</td><td class="ok">Sí</td></tr>
+<tr><td>Todos tus atletas y sus rutinas</td><td class="ok">Sí</td></tr>
+<tr><td>Series, pesos y repeticiones</td><td class="ok">Sí</td></tr>
+<tr><td>Mediciones de peso y grasa</td><td class="ok">Sí</td></tr>
+<tr><td>Fotos de progreso del servidor</td><td class="ok">Sí</td></tr>
+<tr><td>Fotos guardadas en tu teléfono</td><td class="no">No: esas no las tenemos. Se van al desinstalar o al borrar los datos de la app.</td></tr>
+</table>
+
+<p style="color:var(--muted);font-size:13.5px">
+Las copias de seguridad automáticas del proveedor pueden conservar restos hasta
+<b>7 días</b> antes de rotarse. Pasado ese plazo no queda nada.
+</p>
+
+<p style="margin-top:26px">
+<a href="privacidad.html">Política de privacidad</a> &nbsp;·&nbsp;
+<a href="index.html">Volver a la aplicación</a>
+</p>
+
+<script>
+/* Sin servidor propio, la solicitud se envía por correo. Es lo que exige Google:
+   una vía que funcione sin la app instalada. Si algún día hay backend, se cambia
+   este envío por una llamada al endpoint y ya está. */
+const DESTINO = 'emnovag@gmail.com';
+const c = document.getElementById('confirmo');
+const b = document.getElementById('btn');
+const m = document.getElementById('correo');
+function revisar(){
+  b.disabled = !(c.value.trim() === 'BORRAR' && m.checkValidity() && m.value.trim());
+}
+c.addEventListener('input', revisar);
+m.addEventListener('input', revisar);
+
+function enviar(e){
+  e.preventDefault();
+  const correo = m.value.trim();
+  const motivo = document.getElementById('motivo').value.trim();
+  const cuerpo =
+    'Solicito eliminar mi cuenta de Atlas IA y todos mis datos.\n\n' +
+    'Correo de la cuenta: ' + correo + '\n' +
+    (motivo ? 'Motivo: ' + motivo + '\n' : '') +
+    'Fecha de la solicitud: ' + new Date().toISOString().slice(0,10) + '\n';
+  const enlace = 'mailto:' + DESTINO +
+    '?subject=' + encodeURIComponent('Eliminar mi cuenta de Atlas IA') +
+    '&body=' + encodeURIComponent(cuerpo);
+
+  const salida = document.getElementById('salida');
+  salida.hidden = false;
+  salida.innerHTML =
+    '<b>Casi hecho.</b> Se abrirá tu programa de correo con la solicitud escrita: ' +
+    'solo tienes que <b>enviarla</b>.<br><br>' +
+    'Si no se abre solo, escribe a <a href="mailto:' + DESTINO + '">' + DESTINO + '</a> ' +
+    'con el asunto «Eliminar mi cuenta de Atlas IA» e incluye tu correo <b>' + correo + '</b>.';
+  window.location.href = enlace;
+  return false;
+}
+</script>
+
+</main>
+</body>
+</html>
