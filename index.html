@@ -11946,7 +11946,52 @@ const LLM_SYS = [
  'Pregunta corta, respuesta corta. Pregunta compleja, respuesta estructurada.'
 ].join('\n');
 
+/* La version va FIJADA. Antes se importaba '@mlc-ai/web-llm' a secas, o sea la
+   ultima que hubiera ese dia en el CDN: una publicacion suya podia romper el Modo
+   IA sin que aqui se tocara una linea, y sin manera de enterarse. 0.2.84 es la
+   comprobada. Para subirla, se cambia aqui y se prueba. */
+const LLM_VER = '0.2.84';
+const LLM_URL = 'https://esm.run/@mlc-ai/web-llm@' + LLM_VER;
+
+/* `navigator.gpu` existe en casi todos los Android, pero eso NO significa que
+   haya GPU utilizable: Chrome mantiene una lista negra enorme de chips moviles y
+   ahi requestAdapter() devuelve null. Con la comprobacion vieja la app daba el
+   visto bueno, se bajaba 0,9 GB y reventaba al final. Ahora se pregunta antes. */
 const llmDisponible = () => !!navigator.gpu;
+async function llmAdaptador(){
+  if(!navigator.gpu) return {ok:false, motivo:'este navegador no trae WebGPU'};
+  try{
+    const a = await navigator.gpu.requestAdapter();
+    if(!a) return {ok:false, motivo:'el navegador tiene WebGPU pero tu tarjeta grafica no esta permitida'};
+    return {ok:true, adaptador:a};
+  }catch(e){ return {ok:false, motivo:'no he podido abrir la GPU: '+String(e).slice(0,80)}; }
+}
+
+/* Cuanto sitio queda de verdad. En un movil casi lleno el navegador acepta la
+   descarga y luego tira la cache a media faena: el sintoma es justo el que
+   describe la gente, "funcionaba y ahora da error". */
+async function llmEspacio(){
+  try{
+    const e = await navigator.storage.estimate();
+    return {libre: (e.quota||0) - (e.usage||0), cuota: e.quota||0, usado: e.usage||0};
+  }catch(e){ return null; }
+}
+
+/* Borra el modelo bajado. Es la salida cuando la copia guardada quedo a medias:
+   sin esto no habia forma de reintentar limpio desde la propia app. */
+async function llmBorrarModelo(){
+  try{
+    const w = await import(LLM_URL);
+    if(w.deleteModelInCache) await w.deleteModelInCache(_llmModelo);
+  }catch(e){}
+  /* Red de seguridad: si la API cambia de nombre, se van las caches del CDN igual. */
+  try{
+    for(const k of await caches.keys())
+      if(/webllm|mlc|model/i.test(k)) await caches.delete(k);
+  }catch(e){}
+  toast('Modelo borrado. Puedes volver a encender el Modo IA.');
+  llmPintaBarra();
+}
 const llmModeloInfo = id =>BOT_MODELOS.find(m=>m.id===(id||_llmModelo)) || BOT_MODELOS[0];
 
 /* Enciende el motor. Devuelve true si quedó listo. */
@@ -11959,6 +12004,15 @@ async function llmEncender(){
       `con el buscador de siempre, que no necesita descargar nada.</span>`);
     return false;
   }
+  /* La GPU se comprueba de verdad ANTES de bajar nada. */
+  const gpu = await llmAdaptador();
+  if(!gpu.ok){
+    botMsg(`No puedo encender el Modo IA: <b>${botEsc(gpu.motivo)}</b>.<br>`+
+      `<span class="bhint">Sigo respondiendo con el buscador de los 1.022 art\u00edculos, que no `+
+      `necesita GPU ni descargar nada. En m\u00f3viles el Modo IA falla a menudo: es normal.</span>`);
+    _llmEstado='off'; llmPintaBarra();
+    return false;
+  }
   const info=llmModeloInfo();
   /* Antes de bajar casi un giga: si vas con datos moviles o el sistema pide
      ahorrar, se avisa con el tamano por delante. En un movil esto es dinero real,
@@ -11966,9 +12020,22 @@ async function llmEncender(){
   try{
     const con=navigator.connection||{};
     const yaEsta=await (async()=>{ try{
-      const w=await import('https://esm.run/@mlc-ai/web-llm');
+      const w=await import(LLM_URL);
       return await w.hasModelInCache(_llmModelo);
     }catch(e){ return false; } })();
+    /* Espacio: pide un 30 % de colchon sobre el tamano del modelo. El navegador
+       necesita sitio para descomprimir, y si se queda justo tira la cache entera
+       a mitad de camino. */
+    const esp = await llmEspacio();
+    if(!yaEsta && esp && esp.libre < info.mb*1024*1024*1.3){
+      const ok=await askConfirm(
+        `Te quedan <b>${(esp.libre/1073741824).toFixed(1)} GB</b>libres y el modelo pide `+
+        `<b>${(info.mb/1024).toFixed(1)} GB</b>m\u00e1s un margen para descomprimir.<br><br>`+
+        `Si no cabe, el navegador cancela la descarga a medias y el Modo IA queda dando error. `+
+        `Libera espacio y vuelve.`,
+        'Intentarlo igualmente', 'Puede que no quepa');
+      if(!ok){ _llmEstado='off'; llmPintaBarra(); return false; }
+    }
     const caro = !yaEsta && (con.saveData===true || /^(slow-)?2g$|^3g$/.test(con.effectiveType||''));
     if(caro){
       const ok=await askConfirm(
@@ -11981,7 +12048,7 @@ async function llmEncender(){
   }catch(e){}
   _llmEstado='cargando'; llmPintaBarra();
   try{
-    const webllm=await import('https://esm.run/@mlc-ai/web-llm');
+    const webllm=await import(LLM_URL);
     /* Si ya está bajado, esto NO es una instalación: es abrir lo que ya tienes. Se
        carga sin barra de descarga y sin dar la turra, que es lo que se espera de
        algo "ya instalado". La descarga solo se anuncia cuando de verdad la hay. */
@@ -12005,9 +12072,28 @@ async function llmEncender(){
     return true;
   }catch(e){
     _llmEstado='off'; _llm=null; llmPintaBarra();
-    if(_llmMsg) _llmMsg.innerHTML=`No he podido cargar el modelo: <b>${botEsc(String(e).slice(0,120))}</b>.<br>`+
-      `<span class="bhint">Dentro del visor de artifacts está bloqueado bajar el módulo — ahí usa la app `+
-      `abierta como archivo o publicada en una web. Sigo con el buscador de siempre.</span>`;
+    /* El mensaje generico no servia para nada: decia "no he podido" y pegaba la
+       excepcion cruda. Ahora se traduce a la causa, que en movil casi siempre es
+       una de estas tres, y se ofrece la salida. */
+    const txt=String(e), bajo=txt.toLowerCase();
+    const causa =
+      /out of memory|oom|allocation|buffer size|exceeds/.test(bajo)
+        ? 'a tu m\u00f3vil no le cabe el modelo en memoria de video'
+      : /quota|storage|disk|space/.test(bajo)
+        ? 'te has quedado sin espacio a mitad de la descarga'
+      : /network|fetch|failed to fetch|load|timeout|abort/.test(bajo)
+        ? 'se cort\u00f3 la descarga'
+      : /adapter|device|webgpu|gpu/.test(bajo)
+        ? 'tu GPU no ha podido con el modelo'
+      : null;
+    if(_llmMsg) _llmMsg.innerHTML =
+      (causa ? `No he podido encender el Modo IA: <b>${causa}</b>.`
+             : `No he podido cargar el modelo: <b>${botEsc(txt.slice(0,140))}</b>.`)
+      + `<div class="bsug"><button onclick="llmBorrarModelo()">Borrar lo descargado</button>`
+      + `<button onclick="llmEncender()">Reintentar</button></div>`
+      + `<span class="bhint">Si vuelve a fallar, d\u00e9jalo apagado: el buscador de los 1.022 `
+      + `art\u00edculos responde igual, al instante y sin descargar nada. El Modo IA solo cambia `
+      + `la redacci\u00f3n, no lo que sabe.</span>`;
     return false;
   }
 }
@@ -12038,7 +12124,7 @@ async function llmCambiaModelo(id){
 async function llmAutoEncender(){
   if(localStorage.getItem('atlas_llm')==='1'){ llmEncender(); return; }
   try{
-    const webllm=await import('https://esm.run/@mlc-ai/web-llm');
+    const webllm=await import(LLM_URL);
     if(await webllm.hasModelInCache(_llmModelo)) llmEncender();
   }catch(e){}                                   // sin red o dentro del artifact: se queda el buscador
 }
