@@ -11977,6 +11977,40 @@ async function llmEspacio(){
   }catch(e){ return null; }
 }
 
+/* El Modo IA depende de TRES servidores ajenos, y si la red tumba cualquiera de
+   ellos el sintoma es el mismo: "no se puede conectar", sin decir cual. Esto lo
+   sondea con 2 KB antes de comprometerse con 900 MB, y nombra al culpable.
+
+     esm.run                    la libreria web-llm
+     huggingface.co             los pesos del modelo
+     raw.githubusercontent.com  el runtime .wasm compilado
+
+   Se hace en paralelo y con 8 s de tope: si la red esta mal, tampoco vamos a
+   esperar mucho para descubrirlo. */
+async function llmSondeaRed(){
+  const w = await import(LLM_URL).catch(()=>null);
+  if(!w) return {ok:false, quien:'esm.run', que:'la libreria del motor'};
+  const m = w.prebuiltAppConfig.model_list.find(x=>x.model_id===_llmModelo);
+  if(!m) return {ok:false, quien:'el catalogo', que:'este modelo ya no existe en la version '+LLM_VER};
+
+  const prueba = async (url, quien, que) => {
+    try{
+      const c = new AbortController();
+      const t = setTimeout(()=>c.abort(), 8000);
+      const r = await fetch(url, {method:'GET', signal:c.signal, cache:'no-store'});
+      clearTimeout(t);
+      return r.ok ? null : {ok:false, quien, que, codigo:r.status};
+    }catch(e){ return {ok:false, quien, que, codigo:/abort/i.test(String(e))?'no contesta':'bloqueado'}; }
+  };
+  /* Del modelo se pide solo el config (2 KB), no los pesos. Del wasm, el primer
+     byte con Range: basta para saber si el host deja pasar. */
+  const fallos = (await Promise.all([
+    prueba(m.model.replace(/\/+$/,'') + '/resolve/main/mlc-chat-config.json', 'huggingface.co', 'los pesos del modelo'),
+    prueba(m.model_lib, 'raw.githubusercontent.com', 'el runtime del modelo'),
+  ])).filter(Boolean);
+  return fallos.length ? fallos[0] : {ok:true};
+}
+
 /* Borra el modelo bajado. Es la salida cuando la copia guardada quedo a medias:
    sin esto no habia forma de reintentar limpio desde la propia app. */
 async function llmBorrarModelo(){
@@ -12014,6 +12048,25 @@ async function llmEncender(){
     return false;
   }
   const info=llmModeloInfo();
+  /* Sondeo de red ANTES de la descarga, y solo si no esta ya bajado. Convierte
+     un "no se pudo conectar" a los 20 minutos en un aviso concreto al segundo. */
+  try{
+    const yaBajado = await (async()=>{ try{
+      const w=await import(LLM_URL); return await w.hasModelInCache(_llmModelo);
+    }catch(e){ return false; } })();
+    if(!yaBajado){
+      const red = await llmSondeaRed();
+      if(!red.ok){
+        botMsg(`No llego a <b>${botEsc(red.quien)}</b>, que es de donde sale ${botEsc(red.que)}`+
+          (red.codigo?` (${botEsc(String(red.codigo))})`:'')+`.<br>`+
+          `<span class="bhint">Puede ser tu wifi, el operador o que ese servidor este caido. `+
+          `Prueba con otra red. Mientras, el buscador de los 1.022 art\u00edculos sigue funcionando `+
+          `sin necesitar ninguno de esos servidores.</span>`);
+        _llmEstado='off'; llmPintaBarra();
+        return false;
+      }
+    }
+  }catch(e){}
   /* Antes de bajar casi un giga: si vas con datos moviles o el sistema pide
      ahorrar, se avisa con el tamano por delante. En un movil esto es dinero real,
      y bajarlo por sorpresa es de las cosas que hacen desinstalar una app. */
