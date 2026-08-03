@@ -1039,7 +1039,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
     <!--  MAPA TÉRMICO DE FATIGA -->
     <div class="panel">
       <h3>Mapa de fatiga (últimos 7 días)</h3>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Series efectivas acumuladas por músculo esta semana. Antes de volver a entrenar un grupo, mira que no esté en rojo. <b style="color:var(--accent)">Toca un músculo</b>y te digo qué llevas, qué te queda y con qué ejercicios.</p>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Series efectivas acumuladas por músculo esta semana. Antes de volver a entrenar un grupo, mira que no esté en rojo. <b style="color:var(--accent)">Toca un músculo</b> y te digo qué llevas, qué te queda y con qué ejercicios.</p>
       <div class="heat" id="heatMap"></div>
       <div class="heatlegend">
         <span><i style="background:#2c3543"></i>Sin trabajo</span>
@@ -1085,7 +1085,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
       <select id="ormEx"></select>
       <div class="setrow"><span class="n">Peso</span><input id="ormW" inputmode="decimal" placeholder="60"><span class="u">kg</span></div>
       <div class="setrow"><span class="n">Reps</span><input id="ormR" inputmode="numeric" placeholder="8"><span class="u">rp</span></div>
-      <div class="barlbl" style="margin:4px 0 0">Haz una serie <b>cómoda</b>de este ejercicio (deja 2–3 reps en reserva, sin llegar al fallo) y anótala. No necesitas cargar pesado ni quemarte.</div>
+      <div class="barlbl" style="margin:4px 0 0">Haz una serie <b>cómoda</b> de este ejercicio (deja 2–3 reps en reserva, sin llegar al fallo) y anótala. No necesitas cargar pesado ni quemarte.</div>
       <button class="btn primary" style="width:100%;margin-top:8px" onclick="calcOneRM()">Calcular mi carga</button>
       <div id="ormResult" style="margin-top:12px"></div>
       <div class="actions" id="ormActions" style="display:none;margin-top:10px">
@@ -1180,7 +1180,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
     <!--  V-TAPER SCORE -->
     <div class="panel" id="vtPanel" style="display:none">
       <h3>Índice V-Taper y simetría</h3>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Toca <b>4 puntos</b>sobre la foto en este orden: hombro izquierdo, hombro derecho, cintura izquierda, cintura derecha. Con eso calculo tu proporción estética.</p>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Toca <b>4 puntos</b> sobre la foto en este orden: hombro izquierdo, hombro derecho, cintura izquierda, cintura derecha. Con eso calculo tu proporción estética.</p>
       <select id="vtSel" style="margin-bottom:8px"></select>
       <div class="vt" id="vtBox" onclick="vtTap(event)">
         <img id="vtImg">
@@ -1270,7 +1270,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
     <div data-gt="refs" style="display:none">
       <div class="panel">
         <h3>Ciencia aplicada · Paper-to-Action</h3>
-        <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Cada estudio que sostiene tu plan, traducido a <b>una sola acción práctica</b>que puedes aplicar hoy. Toca el DOI para leer el paper original.</p>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Cada estudio que sostiene tu plan, traducido a <b>una sola acción práctica</b> que puedes aplicar hoy. Toca el DOI para leer el paper original.</p>
         <div id="refs"></div>
         <p style="margin-top:10px">Guía general basada en evidencia; no sustituye la valoración de un profesional de salud o del ejercicio.</p>
       </div>
@@ -1921,7 +1921,7 @@ async function deleteUser(name, ev){
      borrar en un movil y que desaparezca del otro no es obvio. */
   const enNube = !!nubeIds()[name];
   const okGo = await askConfirm(
-    `Vas a borrar a <b>${name}</b>y todos sus datos: series registradas, fotos de progreso, mediciones y su rutina.`
+    `Vas a borrar a <b>${name}</b> y todos sus datos: series registradas, fotos de progreso, mediciones y su rutina.`
     + (enNube ? `<br><br>Tiene copia en la nube, así que <b>también desaparecerá de tus otros dispositivos</b>.` : '')
     + `\n\nEsto no se puede deshacer.`,
     "Sí, borrar "+name, "Borrar usuario");
@@ -2258,7 +2258,7 @@ function renderMotorAviso(){
     box.innerHTML=''; return;
   }
   box.innerHTML=`<div class="hnote" style="margin:2px 0 10px">
-     <b>El motor de rutinas se ha actualizado.</b>Tu plan sigue tal cual y tu historial
+     <b>El motor de rutinas se ha actualizado.</b> Tu plan sigue tal cual y tu historial
     intacto: los cambios solo entran al generar uno nuevo. Se han corregido el descanso
     real de cada serie, el tope de volumen en las semanas de carga y la carga sugerida,
     que antes te daba el peso de fallar aunque la ficha te pidiera dejar repeticiones.
@@ -2789,7 +2789,7 @@ function importarAtleta(){
       }
       if(PROFILES[nombre]){
         const ok=await askConfirm(
-          `Ya tienes a <b>${duoEsc(nombre)}</b>en este movil.<br><br>`+
+          `Ya tienes a <b>${duoEsc(nombre)}</b> en este movil.<br><br>`+
           `Si sigues, se reemplazan sus datos por los del archivo. Es lo que quieres `+
           `si te ha reenviado una version mas nueva.`,
           'Actualizar '+nombre, 'Ya existe');
@@ -2876,7 +2876,7 @@ async function applyBackup(i){
   toast("Copia restaurada ");
 }
 function resetData(){
-  askConfirm("Vas a borrar <b>todos los registros</b>de "+(PROFILE||"este usuario")+
+  askConfirm("Vas a borrar <b>todos los registros</b> de "+(PROFILE||"este usuario")+
     ".\n\nSolo se borran sus datos; los demás usuarios no se tocan. No se puede deshacer.",
     "Sí, borrar todo","Borrar datos").then(ok=>{
     if(!ok) return;
@@ -3166,7 +3166,7 @@ function renderHealth(){
   const bf= lastBf?+lastBf.bf : (p.bf!=null?+p.bf:null);
   const sex = p.sex || 'h';
   if(!w || !h){
-    box.innerHTML=`<div class="empty">Necesito tu <b>estatura</b>y tu <b>peso</b>. Haz el test ( en la pestaña Guía) o registra una medición abajo.</div>`;
+    box.innerHTML=`<div class="empty">Necesito tu <b>estatura</b> y tu <b>peso</b>. Haz el test ( en la pestaña Guía) o registra una medición abajo.</div>`;
     return;
   }
   const s=healthStats(w,h,bf,sex);
@@ -3178,10 +3178,10 @@ function renderHealth(){
   if(bf!=null && s.bmi>=25 && ((s.fem&&bf<=24)||(!s.fem&&bf<=17)))
     notes.push(['warn',`Tu IMC dice <b>${bCat.toLowerCase()}</b>, pero tu grasa corporal está en rango fitness/atleta. El IMC no distingue músculo de grasa: <b>en tu caso fíate del % de grasa</b>, no del IMC.`]);
   if(bf!=null && s.bmi<25 && ((s.fem&&bf>31)||(!s.fem&&bf>24)))
-    notes.push(['warn',`Tu IMC es normal pero tu grasa es alta (<b>${bf}%</b>): es el patrón "delgado con grasa". La solución no es adelgazar más, es <b>ganar músculo</b>comiendo suficiente proteína.`]);
+    notes.push(['warn',`Tu IMC es normal pero tu grasa es alta (<b>${bf}%</b>): es el patrón "delgado con grasa". La solución no es adelgazar más, es <b>ganar músculo</b> comiendo suficiente proteína.`]);
   if(s.bmi<18.5) notes.push(['bad',`Estás por debajo del peso saludable para tu estatura (mínimo ≈<b>${s.wMin.toFixed(1)} kg</b>). Consulta con un profesional antes de hacer déficit.`]);
   if(s.bmi>=35) notes.push(['bad',`Con IMC ≥35 conviene que un médico supervise el plan antes de empezar.`]);
-  if(bf==null) notes.push(['','Sin tu <b>% de grasa</b>el índice sale solo del IMC, que es el peor de los tres indicadores para alguien que entrena. Regístralo abajo y se recalcula.']);
+  if(bf==null) notes.push(['','Sin tu <b>% de grasa</b> el índice sale solo del IMC, que es el peor de los tres indicadores para alguien que entrena. Regístralo abajo y se recalcula.']);
   box.innerHTML=`
     <div class="hscore">
       <div class="num" style="color:${scCol}">${s.score}<small>/100</small></div>
@@ -3527,14 +3527,14 @@ function progressAdvice(e){
   const minR=Math.min.apply(null,reps), maxR=Math.max.apply(null,reps);
   const salto=saltoCarga(e,w);
   if(minR>=rr.high) return {nivel:'sube', cab,
-    txt: bw ? `Cerraste <b>todas</b>las series en el tope de ${rr.high}. Toca <b>añadir lastre</b> (empieza con ${salto} kg) o pasar a una variante más dura.`
-            : `Cerraste <b>todas</b>las series en ${rr.high} reps. <b>Sube a ${+(w+salto).toFixed(2)} kg</b> (+${salto}).`};
+    txt: bw ? `Cerraste <b>todas</b> las series en el tope de ${rr.high}. Toca <b>añadir lastre</b> (empieza con ${salto} kg) o pasar a una variante más dura.`
+            : `Cerraste <b>todas</b> las series en ${rr.high} reps. <b>Sube a ${+(w+salto).toFixed(2)} kg</b> (+${salto}).`};
   if(maxR<rr.low) return {nivel:'baja', cab,
     txt: bw ? `Te quedaste en ${maxR} reps, por debajo de ${rr.low}. Quita lastre o usa una progresión más fácil.`
-            : `Te quedaste en ${maxR} reps, por debajo de ${rr.low}. <b>Baja a ${Math.max(0,w-salto)} kg</b>y consolida.`};
+            : `Te quedaste en ${maxR} reps, por debajo de ${rr.low}. <b>Baja a ${Math.max(0,w-salto)} kg</b> y consolida.`};
   return {nivel:'manten', cab,
-    txt: bw ? `Vas dentro del rango ${rr.low}–${rr.high}. <b>Mantén</b>y suma una repetición por serie.`
-            : `Vas dentro del rango ${rr.low}–${rr.high}. <b>Mantén ${w} kg</b>y suma una repetición por serie.`};
+    txt: bw ? `Vas dentro del rango ${rr.low}–${rr.high}. <b>Mantén</b> y suma una repetición por serie.`
+            : `Vas dentro del rango ${rr.low}–${rr.high}. <b>Mantén ${w} kg</b> y suma una repetición por serie.`};
 }
 const ADV_ICO={sube:['','var(--accent)'],baja:['','var(--warn)'],manten:['','var(--accent2)'],info:['','var(--muted)']};
 function watermarkFor(e){
@@ -3579,7 +3579,7 @@ function renderTestSorpresa(){
   if(!e){ box.innerHTML=''; return; }
   box.innerHTML=`<div class="surprise">
     <div class="sp-t">Reto sorpresa</div>
-    <div class="sp-b">Llevas varias sesiones cerrando <b>${e.n}</b>en el tope del rango. ¿Probamos si ya puedes con más peso?</div>
+    <div class="sp-b">Llevas varias sesiones cerrando <b>${e.n}</b> en el tope del rango. ¿Probamos si ya puedes con más peso?</div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn primary" onclick="openOneRMFor('${e.id}')">Hacer el test</button>
       <button class="btn ghost" onclick="saltarTest()">Hoy no</button>
@@ -3809,7 +3809,7 @@ function renderPareja(){
   const nom=r.otro.nombre, pf=r.otro.perfil;
   const objTxt={recomp:'recomposición',fat:'perder grasa',muscle:'ganar músculo',strength:'ganar fuerza'};
   if(!r.dias.length){
-    box.innerHTML=`<div class="hnote warn">Tú y <b>${nom}</b>no coincidís ningún día: cuando uno entrena, el otro descansa. Si queréis compartir sesión, abre el chip <b>Cambiar días</b>en Hoy · el <b>Modo dúo</b>te dice cuánto ganaríais moviendo cada uno.</div>`;
+    box.innerHTML=`<div class="hnote warn">Tú y <b>${nom}</b> no coincidís ningún día: cuando uno entrena, el otro descansa. Si queréis compartir sesión, abre el chip <b>Cambiar días</b> en Hoy · el <b>Modo dúo</b> te dice cuánto ganaríais moviendo cada uno.</div>`;
     return;
   }
   const m=r.mejor;
@@ -3822,7 +3822,7 @@ function renderPareja(){
     <div class="mejordia">
       <div class="md-dia">${m.nom}</div>
       <div class="md-txt">
-        <span style="color:${calidad[1]};font-weight:800;font-size:11.5px">${calidad[0]}</span><br>Tú haces <b>${m.titMio}</b>y ${nom} <b>${m.titSuyo}</b>.
+        <span style="color:${calidad[1]};font-weight:800;font-size:11.5px">${calidad[0]}</span><br>Tú haces <b>${m.titMio}</b> y ${nom} <b>${m.titSuyo}</b>.
         ${m.comunes.length
           ? `Compartís <b>${m.comunes.map(x=>MUSCLE_ES[x]||x).join(', ')}</b>: podéis alternar series en la misma máquina y ahorrar tiempo.`
           : `No compartís músculo, pero podéis ir juntos y turnaros el material.`}
@@ -4523,7 +4523,7 @@ function renderDuoModal(){
   /* 1 · Sin pareja: elegir con quién */
   if(!nom){
     const otros=Object.keys(PROFILES).filter(n=>n!==PROFILE);
-    box.innerHTML=`<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">Dos personas que van al gimnasio a la vez. Te marco qué ejercicios hacéis <b>el mismo día</b>para turnaros la máquina, y te propongo cómo cuadrar más sin tocaros el volumen.</p>`
+    box.innerHTML=`<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">Dos personas que van al gimnasio a la vez. Te marco qué ejercicios hacéis <b>el mismo día</b> para turnaros la máquina, y te propongo cómo cuadrar más sin tocaros el volumen.</p>`
       + duoTogHTML()
       + (otros.length ? otros.map((n,i)=>{
           const b=duoBlob(n);
@@ -4575,7 +4575,7 @@ function renderDuoModal(){
           return `<div class="dprop ${_duoSel[k]?'on':''}" onclick="duoMarcar('${k}')">
             <div class="quien">${p.lado==='mio'?'Cambias tú':'Cambia '+duoEsc(nom)} · ${DIA_ABR[p.wd]}</div>
             <s>${duoEsc(p.deN)}</s> → <b>${duoEsc(p.aN)}</b>
-            <div class="why">Así los dos haríais <b>${duoEsc(p.aN)}</b>y podéis turnaros la máquina. Mismo músculo, mismo papel y las mismas series: el volumen semanal no se mueve.</div>
+            <div class="why">Así los dos haríais <b>${duoEsc(p.aN)}</b> y podéis turnaros la máquina. Mismo músculo, mismo papel y las mismas series: el volumen semanal no se mueve.</div>
           </div>`;
         }).join('')
       + `<button class="btn primary" style="width:100%" onclick="duoAplicarSel()">Aplicar los marcados</button>`;
@@ -4587,7 +4587,7 @@ function renderDuoModal(){
   if(_duoMovs.length){
     h+=`<div class="mdlbl">Mover días</div>`
       + _duoMovs.map((m,i)=>`<div class="dmv ${m.riesgo?'riesgo':''}">
-          <b>${m.lado==='mio'?'Tú':duoEsc(nom)}</b>: ${duoEsc(m.tit)} de ${DIA_LARGO[m.deWd].toLowerCase()} a <b>${DIA_LARGO[m.aWd].toLowerCase()}</b><br>Pasaríais de <b>${m.antes}</b>a <b style="color:var(--duo)">${m.despues}</b>ejercicios juntos.
+          <b>${m.lado==='mio'?'Tú':duoEsc(nom)}</b>: ${duoEsc(m.tit)} de ${DIA_LARGO[m.deWd].toLowerCase()} a <b>${DIA_LARGO[m.aWd].toLowerCase()}</b><br>Pasaríais de <b>${m.antes}</b> a <b style="color:var(--duo)">${m.despues}</b> ejercicios juntos.
           ${m.riesgo?`<div class="why" style="color:var(--warn);font-size:11.5px;margin-top:5px"> ${duoEsc(m.aviso)}</div>`:''}
           <div class="restbtns">${m.lado==='mio'
             ? `<button onclick="duoMoverMio(${i})">Moverlo</button>`
@@ -4681,7 +4681,7 @@ function renderCatalogoMusc(){
     </details>`;
   }).join('');
   box.innerHTML=`<p style="font-size:12px;color:var(--muted);margin:0 0 10px">
-      <b>${total} ejercicios</b>ordenados por músculo, compuestos primero. Los marcados están en tu rutina de esta semana.</p>${bloques}`;
+      <b>${total} ejercicios</b> ordenados por músculo, compuestos primero. Los marcados están en tu rutina de esta semana.</p>${bloques}`;
 }
 function ormSuggFor(e){
   if(e.cardio || e.unit==='seg') return '';
@@ -4749,7 +4749,7 @@ function calcOneRM(){
     }
     const wLight=ormRound(weightForReps(est,rr.high),2.5), wHeavy=ormRound(weightForReps(est,rr.low),2.5);
     workHTML=`
-      <div style="font-size:12.5px;color:var(--muted);text-align:center">Para tus <b style="color:var(--txt)">${rr.low}–${rr.high} reps</b>de ${ex.n||'este ejercicio'}, carga:</div>
+      <div style="font-size:12.5px;color:var(--muted);text-align:center">Para tus <b style="color:var(--txt)">${rr.low}–${rr.high} reps</b> de ${ex.n||'este ejercicio'}, carga:</div>
       <div class="orm-big">${wLight}–${wHeavy} kg</div>
       <div class="orm-sub">${wLight} kg → ${rr.high} reps (más ligero) · ${wHeavy} kg → ${rr.low} reps (más pesado)</div>
       <table class="plan" style="margin-top:10px"><thead><tr><th>Si quieres hacer…</th><th>Pon esta carga</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -4922,7 +4922,7 @@ async function renderStorage(){
   const MB = b => (b/1048576).toFixed(1);
   const nivel = pct>=85 ? 'var(--bad)' : pct>=60 ? 'var(--warn)' : 'var(--accent)';
   const aviso = pct>=85
-    ? `<div class="hnote warn" style="margin-top:8px">Estás al <b>${pct.toFixed(0)} %</b>de la cuota. Si se llena, guardar una sesión puede fallar sin avisar. Exporta y borra fotos antiguas.</div>`
+    ? `<div class="hnote warn" style="margin-top:8px">Estás al <b>${pct.toFixed(0)} %</b> de la cuota. Si se llena, guardar una sesión puede fallar sin avisar. Exporta y borra fotos antiguas.</div>`
     : pct>=60 ? `<div class="note" style="margin-top:8px">Vas por el ${pct.toFixed(0)} % de la cuota del navegador. Aún hay margen.</div>` : '';
   box.innerHTML=`
     <div class="svol" style="margin:4px 0">
@@ -9238,8 +9238,8 @@ function renderPapers(){
     cuerpo += `<h4 class="refh">${catDe(t)}</h4>` + PAPERS4.filter(p=>p.tema===t).map(tarjeta).join('');
   });
   $("#refs").innerHTML =
-    `<div class="barlbl" style="margin:0 0 4px"><b style="color:var(--accent)">${total} estudios</b>revisados por pares · cada DOI verificado uno por uno</div>
-     <p style="font-size:11.5px;color:var(--muted);margin:0 0 10px">Salen de búsquedas sistemáticas en PubMed filtradas a ensayos aleatorizados, metaanálisis y estudios comparativos <b>en humanos sanos</b>: <b>${PAPERS2.length}</b>sobre las variables del entrenamiento (volumen, frecuencia, fallo) y <b>${PAPERS3.length}</b>específicos de cada músculo y <b>${PAPERS4.length}</b>de sueño, comida, recuperación, prevención y cómo medirte. Cada acción está escrita a partir de la conclusión del propio artículo.</p>`
+    `<div class="barlbl" style="margin:0 0 4px"><b style="color:var(--accent)">${total} estudios</b> revisados por pares · cada DOI verificado uno por uno</div>
+     <p style="font-size:11.5px;color:var(--muted);margin:0 0 10px">Salen de búsquedas sistemáticas en PubMed filtradas a ensayos aleatorizados, metaanálisis y estudios comparativos <b>en humanos sanos</b>: <b>${PAPERS2.length}</b> sobre las variables del entrenamiento (volumen, frecuencia, fallo) y <b>${PAPERS3.length}</b> específicos de cada músculo y <b>${PAPERS4.length}</b> de sueño, comida, recuperación, prevención y cómo medirte. Cada acción está escrita a partir de la conclusión del propio artículo.</p>`
     + filtro + cuerpo;
 }
 
@@ -9266,9 +9266,9 @@ function checkAutoreg(id, sets){
   if(pct<40||pct>105) return;                 // fuera de rango útil
   const exp=repsForPercent(pct), diff=exp-r;
   if(diff>=2){
-    _autoregMsgs[id]={level:'warn', msg:`con ${w} kg deberías rondar <b>${Math.round(exp)} reps</b>y hiciste <b>${r}</b>. Fatiga alta: quita <b>1 serie</b>hoy o baja la carga un 5–10 %.`};
+    _autoregMsgs[id]={level:'warn', msg:`con ${w} kg deberías rondar <b>${Math.round(exp)} reps</b> y hiciste <b>${r}</b>. Fatiga alta: quita <b>1 serie</b> hoy o baja la carga un 5–10 %.`};
   }else if(diff<=-2){
-    _autoregMsgs[id]={level:'ok', msg:`hiciste <b>${r} reps</b>con ${w} kg (esperaba ~${Math.round(exp)}). Vas sobrado: <b>sube la carga</b>el próximo día.`};
+    _autoregMsgs[id]={level:'ok', msg:`hiciste <b>${r} reps</b> con ${w} kg (esperaba ~${Math.round(exp)}). Vas sobrado: <b>sube la carga</b> el próximo día.`};
   }else{ delete _autoregMsgs[id]; }
 }
 
@@ -9524,10 +9524,10 @@ function renderMuscDetail(v){
   const nota = prog<=0
     ? `Tu plan de esta semana no programa nada para ${MUSCLE_ES[m].toLowerCase()}. Si te importa, súbelo con el énfasis al rehacer el test.`
     : hecho===0
-      ? `Aún no has registrado series. El plan te pide <b>${prog}</b>esta semana.`
+      ? `Aún no has registrado series. El plan te pide <b>${prog}</b> esta semana.`
       : pct>=100
-        ? `Ya has cubierto lo programado (<b>${hecho}</b>de ${prog}). Lo que hagas de más suma fatiga, no necesariamente músculo.`
-        : `Llevas <b>${hecho}</b>de las <b>${prog}</b>programadas: te faltan <b>${+(prog-hecho).toFixed(1)}</b>series.`;
+        ? `Ya has cubierto lo programado (<b>${hecho}</b> de ${prog}). Lo que hagas de más suma fatiga, no necesariamente músculo.`
+        : `Llevas <b>${hecho}</b> de las <b>${prog}</b> programadas: te faltan <b>${+(prog-hecho).toFixed(1)}</b> series.`;
 
   const fila=x=>{
     const s=effSets(x.e);
@@ -9541,9 +9541,9 @@ function renderMuscDetail(v){
   box.innerHTML=`<div class="mdet">
     <div class="mdh"><b> ${MUSCLE_ES[m]}</b><button onclick="pickMusc('${m}')" title="Cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
     <div class="mchips">
-      <div class="mchip"><b style="color:${est.c}">${hecho}</b>series en 7 días</div>
-      <div class="mchip"><b>${prog}</b>programadas/semana</div>
-      <div class="mchip"><b>${enPlan.length}</b>ejercicios en tu plan</div>
+      <div class="mchip"><b style="color:${est.c}">${hecho}</b> series en 7 días</div>
+      <div class="mchip"><b>${prog}</b> programadas/semana</div>
+      <div class="mchip"><b>${enPlan.length}</b> ejercicios en tu plan</div>
     </div>
     <div class="mbar"><i style="width:${pct}%;background:${est.c}"></i></div>
     <div style="font-size:11px;color:${est.c};margin-bottom:8px">${est.t}${prog>0?` · ${pct}% de lo programado`:''}</div>
@@ -9663,7 +9663,7 @@ function renderProjection(){
   const h=((DB.oneRM||{})[id]||{}).history||[];
   const out=$("#projOut"), chart=$("#projChart");
   if(h.length<2){
-    out.innerHTML=`<div class="empty">Necesitas al menos <b>2 tests</b>de ${ex.n||'este ejercicio'} en días distintos. Llevas ${h.length}.</div>`;
+    out.innerHTML=`<div class="empty">Necesitas al menos <b>2 tests</b> de ${ex.n||'este ejercicio'} en días distintos. Llevas ${h.length}.</div>`;
     chart.style.display='none'; return;
   }
   const t0=new Date(h[0].date).getTime();
@@ -9683,7 +9683,7 @@ function renderProjection(){
     txt = already
       ? `<div class="proj big">¡Ya lo lograste! </div><div class="orm-sub">Tu 1RM actual (${cur} kg) ya supera la meta de ${goal} kg.</div>`
       : `<div class="proj big">${eta.toLocaleDateString('es',{day:'numeric',month:'long',year:'numeric'})}</div>
-         <div class="orm-sub">Fecha estimada para alcanzar <b>${goal} kg</b>en ${ex.n||'este ejercicio'}</div>`;
+         <div class="orm-sub">Fecha estimada para alcanzar <b>${goal} kg</b> en ${ex.n||'este ejercicio'}</div>`;
   }
   out.innerHTML=`${txt}
     <div class="kv"><span>Ritmo real</span><b style="color:${perWeek>0?'var(--accent)':'var(--bad)'}">${perWeek>=0?'+':''}${perWeek.toFixed(2)} kg/semana</b></div>
@@ -10676,8 +10676,8 @@ function goalTimeline(p){
   const avisos=[];
   if(inalcanzable) avisos.push(`Esta meta <b>no sale a un ritmo realista</b>: harían falta más de <b>${Math.round(crudo/52)} años</b>. Reduce los kilos o cambia de objetivo — te muestro los 5 años del tope, pero el número real no significa nada.`);
   else if(semanas>156) avisos.push(`Son más de <b>3 años</b>. Parte la meta en tramos más cortos o la vas a abandonar antes de verla.`);
-  if(ganar>0 && rm>0 && ganar >w*0.10) avisos.push(`Ganar <b>${ganar} kg</b>de músculo es más del 10 % de tu peso: para la mayoría es el techo de varios años de entrenamiento serio.`);
-  if(perder>0 && bf!=null && bfFin!=null && bfFin < (p.sex==='m'?14:7)) avisos.push(`Perder <b>${perder} kg</b>te dejaría en <b>${bfFin} %</b>de grasa, por debajo de lo saludable. Baja la meta.`);
+  if(ganar>0 && rm>0 && ganar >w*0.10) avisos.push(`Ganar <b>${ganar} kg</b> de músculo es más del 10 % de tu peso: para la mayoría es el techo de varios años de entrenamiento serio.`);
+  if(perder>0 && bf!=null && bfFin!=null && bfFin < (p.sex==='m'?14:7)) avisos.push(`Perder <b>${perder} kg</b> te dejaría en <b>${bfFin} %</b> de grasa, por debajo de lo saludable. Baja la meta.`);
   return {semanas, inalcanzable, meses:+(semanas/4.345).toFixed(1), fecha, ganar, perder,
           ritmoMes:+rm.toFixed(2), ritmoSem:+rg.toFixed(2),
           semGanar:Math.ceil(semGanar), semPerder:Math.ceil(semPerder),
@@ -10713,15 +10713,15 @@ function buildRecommendation(p){
   const gastoTotal=tdee+cardioDia;
   const deficit=gastoTotal-kcal;
   const tips=[];
-  tips.push(`Come alrededor de <b>${kcal} kcal/día</b>con <b>${prot} g de proteína</b> (${(prot/w).toFixed(1)} g por kg de peso corporal${(p.bf!=null&&+p.bf>0)?`, calculada sobre tu masa magra`:''}).`);
+  tips.push(`Come alrededor de <b>${kcal} kcal/día</b> con <b>${prot} g de proteína</b> (${(prot/w).toFixed(1)} g por kg de peso corporal${(p.bf!=null&&+p.bf>0)?`, calculada sobre tu masa magra`:''}).`);
   if(cardioDia>0) tips.push(`Te has comprometido a <b>${p.cardioMin} min de ${MET_TXT[p.cardioTipo]||'cardio'} a la semana</b> ≈ <b>${cardioSem} kcal</b> (${cardioDia}/día). Esas kcal <b>se restan</b>: tu objetivo de comida sigue siendo ${kcal}, así que el cardio va entero al déficit. Si un día no sales, ese día tu déficit baja en ${cardioDia} kcal — no lo compenses comiendo menos, compénsalo saliendo al siguiente.`);
   if(suelo) tips.push(`Tu gasto estimado es de solo <b>${tdee} kcal</b>. Aplicar el déficit te dejaría por debajo del mínimo seguro (<b>${floor} kcal</b>), así que la app lo ha subido hasta ahí. Con un gasto tan bajo, para perder grasa sube la actividad diaria antes que bajar más la comida — y consúltalo con un profesional.`);
-  if(a<16) tips.push(`Con <b>${a} años</b>todavía estás creciendo: entrena la técnica con cargas moderadas (RIR 3 o más), evita los máximos de 1–3 repeticiones y que un adulto supervise las sesiones.`);
-  if(a>=65) tips.push(`Con <b>${a} años</b>la prioridad es mantener fuerza y masa muscular para la autonomía: descansos más largos, nunca llegar al fallo y repartir la proteína en 3–4 tomas al día.`);
+  if(a<16) tips.push(`Con <b>${a} años</b> todavía estás creciendo: entrena la técnica con cargas moderadas (RIR 3 o más), evita los máximos de 1–3 repeticiones y que un adulto supervise las sesiones.`);
+  if(a>=65) tips.push(`Con <b>${a} años</b> la prioridad es mantener fuerza y masa muscular para la autonomía: descansos más largos, nunca llegar al fallo y repartir la proteína en 3–4 tomas al día.`);
   if(p.bf){
     const bf=+p.bf;
     const lean = fem ? 23 : 14;
-    if(bf>lean) tips.push(`Estás en <b>${bf} %</b>de grasa: para verte "aesthetic" el mayor salto visual lo dará bajar hasta <b>${targetBf}</b>, no entrenar más.`);
+    if(bf>lean) tips.push(`Estás en <b>${bf} %</b> de grasa: para verte "aesthetic" el mayor salto visual lo dará bajar hasta <b>${targetBf}</b>, no entrenar más.`);
     else tips.push(`Ya estás en <b>${bf} %</b>: prioriza ganar músculo en hombros y espalda antes que seguir bajando grasa.`);
   } else {
     tips.push(`Mídete el % de grasa: el objetivo estético está en <b>${targetBf}</b>.`);
@@ -10735,7 +10735,7 @@ function buildRecommendation(p){
      y reventaba la pila en cuanto un perfil tenía meta en kg pero no weeks.
      Las semanas ya las fija generateFromOnboarding; esto es solo el respaldo. */
   const semanasPlan = +p.weeks || 12;
-  tips.push(`Sé constante <b>${semanasPlan} semanas</b>antes de juzgar el plan; registra cada serie para que la app ajuste tus cargas.`);
+  tips.push(`Sé constante <b>${semanasPlan} semanas</b> antes de juzgar el plan; registra cada serie para que la app ajuste tus cargas.`);
   return {tdee, bmr:Math.round(bmr), kcal:Math.round(kcal), prot, targetBf, tips, suelo, floor,
           cardioDia, cardioSem, gastoTotal, deficit};
 }
@@ -10744,46 +10744,46 @@ function buildRecommendation(p){
    lenguaje llano y, cuando se puede, con los números del propio usuario. */
 const GLOSARIO=[
  {k:'rir', t:'RIR', sub:'Repeticiones en reserva', ev:'alta',
-  q:'Cuántas repeticiones <b>más</b>podrías haber hecho al parar la serie. RIR 2 = paraste pudiendo hacer 2 más.',
+  q:'Cuántas repeticiones <b>más</b> podrías haber hecho al parar la serie. RIR 2 = paraste pudiendo hacer 2 más.',
   por:'Es la forma de medir el esfuerzo sin llegar al fallo. Y el número correcto <b>depende de tu objetivo</b>: para hipertrofia, cuanto más cerca del fallo mejor (aunque la ventaja de llegar al fallo es pequeña, ES 0,19). Para fuerza da igual: se gana lo mismo en un rango amplio de RIR, así que esta app te deja más margen y te ahorra fatiga.',
-  ej:p=>'Si tu serie pone <b>RIR 2</b>y a la octava repetición sientes que te quedan 2, ahí paras. Si podrías hacer 5 más, sube el peso.',
+  ej:p=>'Si tu serie pone <b>RIR 2</b> y a la octava repetición sientes que te quedan 2, ahí paras. Si podrías hacer 5 más, sube el peso.',
   doi:'10.1007/s40279-024-02069-2'},
  {k:'series', t:'Serie', sub:'y repetición',
-  q:'Una <b>repetición</b>es un movimiento completo. Una <b>serie</b>es un grupo de repeticiones seguidas, sin soltar el peso.',
+  q:'Una <b>repetición</b> es un movimiento completo. Una <b>serie</b> es un grupo de repeticiones seguidas, sin soltar el peso.',
   por:'Es la unidad con la que se mide el entrenamiento. "4 × 6–10" quiere decir 4 series de entre 6 y 10 repeticiones cada una.',
   ej:()=>'<b>4 × 6–10</b> = cuatro series, y en cada una haces entre 6 y 10 repeticiones antes de descansar.'},
  {k:'volumen', t:'Volumen semanal', sub:'series por músculo', ev:'alta',
   q:'El total de series que le haces a un músculo en toda la semana, sumando todos los días y ejercicios.',
-  por:'Es lo que más determina cuánto músculo ganas, pero <b>rinde cada vez menos</b>. Con la curva ajustada a los datos publicados, a <b>10 series ya estás en el 91 %</b>del máximo posible; a 16 en el 94 % y a 22 en el 96 %. Y satura mucho antes en fuerza que en hipertrofia, por eso esta app te da un volumen distinto según tu objetivo.',
+  por:'Es lo que más determina cuánto músculo ganas, pero <b>rinde cada vez menos</b>. Con la curva ajustada a los datos publicados, a <b>10 series ya estás en el 91 %</b> del máximo posible; a 16 en el 94 % y a 22 en el 96 %. Y satura mucho antes en fuerza que en hipertrofia, por eso esta app te da un volumen distinto según tu objetivo.',
   ej:p=>{const g=(p&&p.goal)||'recomp';const t={strength:'10',fat:'12',recomp:'14',muscle:'18'}[g]||'14';
     return `Tu objetivo apunta a <b>${t} series por músculo y semana</b>. Si haces 4 series de press banca el lunes y 4 de flexiones el jueves, tu pecho lleva 8 esa semana.`;},
   doi:'10.1007/s40279-017-0762-7 · 10.1007/s40279-025-02344-w'},
  {k:'carga_reps', t:'¿Importa el rango de repeticiones?', sub:'para hipertrofia, no', ev:'alta',
   q:'Para <b>ganar músculo</b>, da igual entrenar con series de 5, de 10 o de 20 repeticiones, siempre que el esfuerzo sea alto.',
-  por:'Una revisión con red de 28 estudios y 747 participantes no encontró ninguna diferencia entre cargas altas, moderadas y bajas para la hipertrofia. Para la <b>fuerza</b>sí importa: ahí la carga alta gana.',
+  por:'Una revisión con red de 28 estudios y 747 participantes no encontró ninguna diferencia entre cargas altas, moderadas y bajas para la hipertrofia. Para la <b>fuerza</b> sí importa: ahí la carga alta gana.',
   ej:()=>'Por eso los rangos de esta app van anchos (6–12 y 8–15): dentro de ellos elige el que te apetezca. En objetivo de fuerza verás 4–6, que ahí sí está justificado.',
   doi:'10.1249/mss.0000000000002585'},
  {k:'compuesto', t:'Compuesto vs. aislamiento', sub:'tipos de ejercicio',
-  q:'Un <b>compuesto</b>mueve varias articulaciones a la vez (sentadilla, press banca, dominada). Un <b>aislamiento</b>mueve una sola (curl de bíceps, elevaciones laterales).',
+  q:'Un <b>compuesto</b> mueve varias articulaciones a la vez (sentadilla, press banca, dominada). Un <b>aislamiento</b> mueve una sola (curl de bíceps, elevaciones laterales).',
   por:'Los compuestos mueven más peso y dan más estímulo en menos tiempo, por eso van al principio del día. Los aislamientos rematan lo que falta.',
   ej:()=>'La sentadilla usa cadera, rodilla y tobillo a la vez. El curl de bíceps solo el codo.'},
  {k:'tempo', t:'Tempo', sub:'la cadencia del movimiento', ev:'media',
   q:'Los tres números son segundos: <b>bajada - pausa - subida</b>. Un tempo 2-0-1 es bajar en 2 segundos, no parar y subir en 1.',
-  por:'No te obsesiones con la cifra exacta: el metaanálisis encontró resultados <b>similares con cualquier duración entre 0,5 y 8 segundos</b>por repetición. Solo por encima de 10 s empeora. Lo que importa es controlar la bajada, no cronometrarla.',
+  por:'No te obsesiones con la cifra exacta: el metaanálisis encontró resultados <b>similares con cualquier duración entre 0,5 y 8 segundos</b> por repetición. Solo por encima de 10 s empeora. Lo que importa es controlar la bajada, no cronometrarla.',
   ej:()=>'<b>2-0-1</b>: bajas contando "mil uno, mil dos", no te paras abajo y subes en un segundo. Si te sale 1-0-2, da igual.',
   doi:'10.1007/s40279-015-0304-0'},
  {k:'1rm', t:'1RM', sub:'tu máximo a una repetición',
-  q:'El peso máximo que podrías levantar <b>una sola vez</b>en un ejercicio. No hace falta probarlo: se estima con una serie normal.',
+  q:'El peso máximo que podrías levantar <b>una sola vez</b> en un ejercicio. No hace falta probarlo: se estima con una serie normal.',
   por:'Sirve para saber qué peso poner. Todos los rangos de repeticiones son un porcentaje de tu 1RM.',
   ej:()=>'Si haces 60 kg por 8 repeticiones, tu 1RM estimado ronda los <b>75 kg</b>, y para series de 10 te tocarían unos 56 kg.'},
  {k:'descarga', t:'Descarga', sub:'la semana suave', ev:'practica',
-  q:'Una semana con la <b>mitad de series</b>y lejos del esfuerzo máximo, manteniendo los mismos días y ejercicios.',
-  por:'La idea es que la fatiga se acumula y conviene dejarla bajar. <b>Aviso honesto:</b>revisamos 520 artículos y ninguno cuantifica cada cuánto descargar ni cuánto bajar. El "cada 6 semanas al 55 %" de esta app es un criterio práctico, no un número sacado de un estudio. Lo que sí está medido es que <b>periodizar</b>mejora la fuerza (ES 0,31) pero no la hipertrofia (ES 0,13, no significativo).',
+  q:'Una semana con la <b>mitad de series</b> y lejos del esfuerzo máximo, manteniendo los mismos días y ejercicios.',
+  por:'La idea es que la fatiga se acumula y conviene dejarla bajar. <b>Aviso honesto:</b> revisamos 520 artículos y ninguno cuantifica cada cuánto descargar ni cuánto bajar. El "cada 6 semanas al 55 %" de esta app es un criterio práctico, no un número sacado de un estudio. Lo que sí está medido es que <b>periodizar</b> mejora la fuerza (ES 0,31) pero no la hipertrofia (ES 0,13, no significativo).',
   ej:()=>'Si vienes haciendo 5 series de sentadilla, en la descarga haces 2 y con margen de sobra.',
   doi:'10.1007/s40279-021-01636-1'},
  {k:'descanso', t:'Descanso entre series', sub:'criterio práctico', ev:'practica',
   q:'El tiempo que esperas entre una serie y la siguiente: 2–3 min en los ejercicios grandes, 60–90 s en los pequeños.',
-  por:'Sirve para que puedas repetir la misma calidad en la serie siguiente. <b>Aviso honesto:</b>la búsqueda dirigida en PubMed con filtro de metaanálisis no devolvió ninguno específico de descanso entre series para hipertrofia o fuerza. Los valores de esta app son criterio práctico, no evidencia.',
+  por:'Sirve para que puedas repetir la misma calidad en la serie siguiente. <b>Aviso honesto:</b> la búsqueda dirigida en PubMed con filtro de metaanálisis no devolvió ninguno específico de descanso entre series para hipertrofia o fuerza. Los valores de esta app son criterio práctico, no evidencia.',
   ej:()=>'Guíate por la sensación: si la serie siguiente se te cae mucho de repeticiones, has descansado poco.'},
  {k:'imc', t:'IMC', sub:'índice de masa corporal',
   q:'Tu peso dividido por tu estatura al cuadrado. Un número que clasifica el peso: por debajo de 18,5 es bajo peso, hasta 25 normal, hasta 30 sobrepeso.',
@@ -10792,27 +10792,27 @@ const GLOSARIO=[
  {k:'grasa', t:'% de grasa corporal', sub:'la cifra que de verdad importa',
   q:'Qué parte de tu peso es grasa. Se mide con báscula de bioimpedancia, plicómetro o a ojo comparando fotos.',
   por:'Es lo que decide cómo te ves. Dos personas de 78 kg pueden verse completamente distintas según si están al 12 % o al 28 %.',
-  ej:p=>`Rangos sanos: <b>10–14 %</b>en hombre y <b>18–23 %</b>en mujer. Bajar de ahí no es "más salud": la grasa esencial hace falta.`},
+  ej:p=>`Rangos sanos: <b>10–14 %</b> en hombre y <b>18–23 %</b> en mujer. Bajar de ahí no es "más salud": la grasa esencial hace falta.`},
  {k:'ffmi', t:'FFMI', sub:'índice de masa libre de grasa',
   q:'Lo mismo que el IMC pero contando <b>solo tu masa magra</b> (músculo, hueso y agua), sin la grasa.',
   por:'Es el número que dice si tu peso es músculo o no. El IMC no lo distingue; el FFMI sí.',
   ej:()=>'Un FFMI de 20–22 en hombre es buena musculatura. Por encima de 25 sin ayudas es rarísimo.'},
  {k:'basal', t:'Metabolismo basal', sub:'y gasto total (TDEE)',
-  q:'El <b>basal</b>es lo que quemas estando tumbado sin hacer nada, solo por seguir vivo. El <b>gasto total</b>añade moverte y entrenar.',
+  q:'El <b>basal</b> es lo que quemas estando tumbado sin hacer nada, solo por seguir vivo. El <b>gasto total</b> añade moverte y entrenar.',
   por:'Todo el plan de comida sale de ahí: comes por debajo del gasto para perder grasa, o por encima para ganar músculo.',
   ej:p=>'Nunca deberías comer por debajo de tu basal: el cuerpo lo interpreta como hambruna y te quita músculo antes que grasa.'},
  {k:'deficit', t:'Déficit y superávit', sub:'calorías',
-  q:'<b>Déficit</b>es comer menos de lo que gastas (pierdes grasa). <b>Superávit</b>es comer más (ganas músculo, y algo de grasa).',
+  q:'<b>Déficit</b> es comer menos de lo que gastas (pierdes grasa). <b>Superávit</b> es comer más (ganas músculo, y algo de grasa).',
   por:'No se puede hacer todo a la vez a tope. En esta app el déficit va como porcentaje del gasto, nunca como un número fijo, y con un suelo de seguridad.',
   ej:()=>'Un déficit del 20 % es sostenible. Uno del 50 % te hace perder músculo, te deja sin energía para entrenar y lo recuperas todo después.'},
  {k:'proteina', t:'Proteína', sub:'g por kilo',
   q:'El nutriente con el que se construye el músculo. Se calcula sobre tu <b>masa magra</b>, no sobre el peso total: la grasa no necesita proteína.',
   por:'En déficit es lo que evita que pierdas músculo junto con la grasa. Es el macronutriente que más conviene no fallar.',
-  ej:()=>'Unos <b>2 g por kilo de peso</b>al día, repartidos en 3 o 4 comidas. 100 g de pollo tienen unos 23 g.'},
+  ej:()=>'Unos <b>2 g por kilo de peso</b> al día, repartidos en 3 o 4 comidas. 100 g de pollo tienen unos 23 g.'},
  {k:'cardio', t:'Cardio y déficit', sub:'por qué las kcal se restan',
-  q:'Las calorías que quemas caminando o corriendo <b>no suben</b>tu objetivo de comida: se restan del total y van enteras al déficit.',
+  q:'Las calorías que quemas caminando o corriendo <b>no suben</b> tu objetivo de comida: se restan del total y van enteras al déficit.',
   por:'Es la forma de perder grasa sin comer menos. Si compensas el cardio comiendo más, el déficit se queda igual y no adelgazas.',
-  ej:p=>{const w=(p&&p.weight)||77;return `Caminar 150 min a la semana pesando ${w} kg son unas <b>${Math.round(3.5*w*2.5)} kcal</b>, es decir ≈<b>${(3.5*w*2.5*4/7700).toFixed(1)} kg de grasa al mes</b>sin tocar el plato.`;}},
+  ej:p=>{const w=(p&&p.weight)||77;return `Caminar 150 min a la semana pesando ${w} kg son unas <b>${Math.round(3.5*w*2.5)} kcal</b>, es decir ≈<b>${(3.5*w*2.5*4/7700).toFixed(1)} kg de grasa al mes</b> sin tocar el plato.`;}},
  {k:'neat', t:'NEAT', sub:'lo que te mueves sin entrenar',
   q:'Todo el gasto de moverte fuera del gimnasio: andar, subir escaleras, estar de pie, gesticular.',
   por:'Puede ser más calorías al día que el propio entrenamiento, y es lo primero que el cuerpo recorta cuando comes poco. Por eso los pasos diarios cuentan.',
@@ -10892,7 +10892,7 @@ function renderIntake(){
       <button onclick="resetIntake()">↺ Reiniciar</button>
     </div>
     <div class="hnote" style="margin-top:10px">${
-      (faltaK||faltaP) ? `Te faltan <b>${faltaK} kcal</b>y <b>${faltaP} g</b>de proteína para tu objetivo de hoy.`
+      (faltaK||faltaP) ? `Te faltan <b>${faltaK} kcal</b> y <b>${faltaP} g</b> de proteína para tu objetivo de hoy.`
       : `Objetivo del día cubierto: ${i.kcal} kcal y ${i.prot} g de proteína.`}</div>`;
 }
 /* =====================  DIAPOSITIVA DE RESUMEN ===================== */
@@ -10904,7 +10904,7 @@ function renderPlanSlide(){
   const r=buildRecommendation(p), t=goalTimeline(p), vol=planVolume(DAYS);
   const mins=planMinutes(DAYS), corta=Math.min.apply(null,mins), larga=Math.max.apply(null,mins);
   const pedido=+p.minutesAsked||+p.minutes||0;
-  const metaTxt=[t.perder?`perder <b>${t.perder} kg</b>de grasa`:'', t.ganar?`ganar <b>${t.ganar} kg</b>de músculo`:'']
+  const metaTxt=[t.perder?`perder <b>${t.perder} kg</b> de grasa`:'', t.ganar?`ganar <b>${t.ganar} kg</b> de músculo`:'']
     .filter(Boolean).join(' y ');
   const fecha=new Date(t.fecha+'T12:00:00Z');
   const fechaTxt=`${fecha.getUTCDate()} de ${['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][fecha.getUTCMonth()]} de ${fecha.getUTCFullYear()}`;
@@ -10919,10 +10919,10 @@ function renderPlanSlide(){
     <div class="sgoal">
       <div class="big">${t.semanas} semanas</div>
       <div class="when">para ${metaTxt} · llegas el <b>${fechaTxt}</b></div>
-      ${(t.semGanar>0 && t.semPerder>0 && Math.abs(t.semGanar-t.semPerder)>2)?`<div class="sub" style="margin-top:8px">Las dos cosas van en paralelo, pero no acaban a la vez: la <b>grasa</b>la tienes en <b>${t.semPerder} semanas</b>y el <b>músculo</b>tarda <b>${t.semGanar}</b>. Manda el más lento.</div>`:''}
-      <div class="sub">Al ritmo que te corresponde: <b>${t.ritmoMes} kg</b>de músculo al mes${t.ritmoSem?` y <b>${t.ritmoSem} kg</b>de grasa por semana`:''}
+      ${(t.semGanar>0 && t.semPerder>0 && Math.abs(t.semGanar-t.semPerder)>2)?`<div class="sub" style="margin-top:8px">Las dos cosas van en paralelo, pero no acaban a la vez: la <b>grasa</b> la tienes en <b>${t.semPerder} semanas</b> y el <b>músculo</b> tarda <b>${t.semGanar}</b>. Manda el más lento.</div>`:''}
+      <div class="sub">Al ritmo que te corresponde: <b>${t.ritmoMes} kg</b> de músculo al mes${t.ritmoSem?` y <b>${t.ritmoSem} kg</b> de grasa por semana`:''}
         (${p.sex==='m'?'mujer':'hombre'}, nivel ${({beg:'principiante',int:'intermedio',adv:'avanzado'})[p.level]}).
-        Acabarías en <b>${t.pesoFin} kg</b>${t.bfFin!=null?` y <b>${t.bfFin} %</b>de grasa`:''}.</div>
+        Acabarías en <b>${t.pesoFin} kg</b>${t.bfFin!=null?` y <b>${t.bfFin} %</b> de grasa`:''}.</div>
     </div>
     ${t.avisos.map(a=>`<div class="hnote warn" style="margin:0 0 11px"> ${a}</div>`).join('')}
 
@@ -10942,13 +10942,13 @@ function renderPlanSlide(){
       <div class="kv"><span><b>− Comes al día</b></span><b>${r.kcal}</b></div>
       <div class="kv"><span><b>${r.deficit>=0?'Déficit':'Superávit'} real</b></span>
         <b style="color:${r.deficit>0?'var(--accent)':'var(--gold)'}">${Math.abs(r.deficit)} kcal/día</b></div>
-      ${r.cardioDia>0?`<div class="note" style="margin-top:8px">Las <b>${r.cardioSem} kcal</b>del cardio <b>se restan enteras</b>: el objetivo de comida (${r.kcal}) está calculado sin contarlas. Si dejas de salir, pierdes ${r.cardioDia} kcal de déficit al día — unos <b>${(r.cardioSem*4/7700).toFixed(1)} kg de grasa al mes</b>.</div>`
+      ${r.cardioDia>0?`<div class="note" style="margin-top:8px">Las <b>${r.cardioSem} kcal</b> del cardio <b>se restan enteras</b>: el objetivo de comida (${r.kcal}) está calculado sin contarlas. Si dejas de salir, pierdes ${r.cardioDia} kcal de déficit al día — unos <b>${(r.cardioSem*4/7700).toFixed(1)} kg de grasa al mes</b>.</div>`
         :`<div class="note" style="margin-top:8px">No has puesto cardio. Añadir 150 min de caminata a la semana serían ≈${Math.round(3.5*(+p.weight||70)*2.5)} kcal más de déficit, sin tocar la comida.</div>`}
     </div>
 
     <div class="ssec">
       <h3>Volumen semanal por músculo</h3>
-      <p style="font-size:11.5px;color:var(--muted);margin:0 0 8px">Tu objetivo (<b>${goalTxt.toLowerCase()}</b>) apunta a <b>${({strength:10,fat:12,recomp:14,muscle:18})[p.goal]||14} series</b>por músculo y semana. No es el mismo número para todos: el volumen rinde cada vez menos, y en <b>fuerza satura mucho antes</b>que en hipertrofia. A 10 series ya estás en el 91 % del máximo de la curva; a 16, en el 94 %.</p>
+      <p style="font-size:11.5px;color:var(--muted);margin:0 0 8px">Tu objetivo (<b>${goalTxt.toLowerCase()}</b>) apunta a <b>${({strength:10,fat:12,recomp:14,muscle:18})[p.goal]||14} series</b> por músculo y semana. No es el mismo número para todos: el volumen rinde cada vez menos, y en <b>fuerza satura mucho antes</b> que en hipertrofia. A 10 series ya estás en el 91 % del máximo de la curva; a 16, en el 94 %.</p>
       ${filas.map(x=>{
         const col=x.v<10?'var(--accent2)':x.v<=20?'var(--accent)':'var(--warn)';
         return `<div class="svol"><span class="nm">${MUSCLE_ES[x.m]}</span>
@@ -11004,17 +11004,17 @@ function renderPlanInfo(){
     let alt='';
     if(p.days<6 && porDia(6)<=pedido){
       let d=p.days+1; while(d<6 && porDia(d)>pedido) d++;
-      alt=`, o <b>repartirla en ${d} días</b>y dejarla en ≈${porDia(d)} min`;
+      alt=`, o <b>repartirla en ${d} días</b> y dejarla en ≈${porDia(d)} min`;
     } else if(p.days<6){
       alt=`. Ojo: ni repartiéndola en 6 días bajaría de ≈${porDia(6)} min por sesión — este volumen necesita ese tiempo`;
     }
     timeBox=`<div class="hnote warn" style="margin:0 0 10px"> <b>Pediste ${pedido} min, pero esta rutina dura ≈${real} min</b> (un ${exceso} % más).
-      No he recortado series: las <b>10–20 series por músculo y semana</b>son lo que sostiene la evidencia (Schoenfeld 2017),
+      No he recortado series: las <b>10–20 series por músculo y semana</b> son lo que sostiene la evidencia (Schoenfeld 2017),
       y bajarlas para que quepa en el reloj daría un plan que no cumple lo que promete.
       Puedes <b>alargar la sesión a ${real} min</b>${alt}.
       <span style="opacity:.8">El cálculo asume series directas: encadenando superseries en los aislamientos baja un 15–20 %.</span></div>`;
   } else if(pedido){
-    timeBox=`<div class="hnote" style="margin:0 0 10px">La sesión más larga dura <b>≈${real} min</b>y cabe en los <b>${pedido} min</b>que pediste, manteniendo las 10–20 series/músculo/semana.</div>`;
+    timeBox=`<div class="hnote" style="margin:0 0 10px">La sesión más larga dura <b>≈${real} min</b> y cabe en los <b>${pedido} min</b> que pediste, manteniendo las 10–20 series/músculo/semana.</div>`;
   }
   $("#planInfo").innerHTML=`
     <button class="btn primary" style="width:100%;margin-bottom:11px" onclick="openPlanSlide()">Ver el resumen de mi plan</button>
@@ -11120,7 +11120,7 @@ function renderLegDaysQuestion(){
     ? (dias===3
         ? 'Con 3 días la rutina es de cuerpo completo: la pierna ya se entrena en las tres sesiones.'
         : 'Con 4 días el reparto es torso/pierna alterno, así que salen 2 días de pierna.')
-    : `Con <b>3 días</b>el mismo volumen semanal se reparte en sesiones de pierna más cortas (unos 5 ejercicios en vez de 8) y descansas más entre ellas. Con <b>2</b>son sesiones más largas y duras.`;
+    : `Con <b>3 días</b> el mismo volumen semanal se reparte en sesiones de pierna más cortas (unos 5 ejercicios en vez de 8) y descansas más entre ellas. Con <b>2</b> son sesiones más largas y duras.`;
 }
 /* Lee lo que ya hay escrito en el test para poder estimar la meta en vivo. */
 function onbPerfilParcial(){
@@ -11160,8 +11160,8 @@ function updateCardioNota(){
   if(!car){ n.innerHTML='Sin cardio. El entrenamiento de fuerza solo ya cuenta en tu gasto.'; return; }
   const btn=(v,t)=>`<button class="${_kcalVista===v?'on':''}" onclick="setKcalVista('${v}')">${t}</button>`;
   const cuerpo = _kcalVista==='dia'
-    ? `≈ <b style="color:var(--accent)">${Math.round(car/dias)} kcal</b>por sesión, si lo reparte en tus <b>${dias}</b>días de entrenamiento.`
-    : `≈ <b style="color:var(--accent)">${car} kcal</b>a la semana.`;
+    ? `≈ <b style="color:var(--accent)">${Math.round(car/dias)} kcal</b> por sesión, si lo reparte en tus <b>${dias}</b> días de entrenamiento.`
+    : `≈ <b style="color:var(--accent)">${car} kcal</b> a la semana.`;
   n.innerHTML=`<div class="goalseg" style="margin:0 0 8px">${btn('dia','Al día que entrenas')}${btn('sem','A la semana')}</div>${cuerpo}
     <br>Estas kcal <b>se restan</b>: no suben tu objetivo de comida, van enteras al déficit ≈ <b>${(car*4/7700).toFixed(1).replace('.',',')} kg de grasa al mes</b>.`;
 }
@@ -11178,8 +11178,8 @@ function updateMetaNota(){
   const curva = bf0!=null ? miniCurvaGrasa(trayectoria(p, p.weight, bf0, t.semanas)) : '';
   n.innerHTML=`A tu ritmo (${p.sex==='m'?'mujer':'hombre'} ${({beg:'principiante',int:'intermedio',adv:'avanzado'})[p.level]}) tardarías <b style="color:var(--accent)">${t.semanas} semanas</b> · ${t.meses} meses · hasta el <b>${t.fecha}</b>.`
     + ((t.semGanar>0&&t.semPerder>0&&Math.abs(t.semGanar-t.semPerder)>2)?` <span style="color:var(--muted)">(grasa en ${t.semPerder}, músculo en ${t.semGanar} — manda el más lento)</span>`:'')
-    + (curva?`<div style="margin-top:4px;color:var(--muted)">Tu <b>% de grasa</b>mes a mes hasta la meta:</div>${curva}`
-            :`<div style="margin-top:5px;color:var(--muted)">Escribe tu <b>% de grasa</b>arriba y te dibujo cómo va a bajar mes a mes.</div>`)
+    + (curva?`<div style="margin-top:4px;color:var(--muted)">Tu <b>% de grasa</b> mes a mes hasta la meta:</div>${curva}`
+            :`<div style="margin-top:5px;color:var(--muted)">Escribe tu <b>% de grasa</b> arriba y te dibujo cómo va a bajar mes a mes.</div>`)
     + (t.avisos.length?`<div style="color:var(--warn);margin-top:6px"> ${t.avisos[0]}</div>`:'');
 }
 /* Sin esto la app aceptaba 220 kg con 1,35 m (IMC 120,7) o 35 kg con 2,10 m (IMC 7,9). */
@@ -11530,7 +11530,7 @@ function botDiscrepancia(ps){
   const pos=ps.filter(p=>!botNiega(p));
   if(!neg.length || !pos.length) return '';
   return `<div class="bwarn">Estos artículos no apuntan en la misma dirección: `+
-    `<b>${neg.length}</b>matiza o niega el efecto y <b>${pos.length}</b>lo respalda. `+
+    `<b>${neg.length}</b> matiza o niega el efecto y <b>${pos.length}</b> lo respalda. `+
     `Léelos los dos — no me toca a mí elegir por ti.</div>`;
 }
 
@@ -11553,12 +11553,12 @@ function botDatos(q){
   }
   if(/\b(proteina|kcal|caloria|calorias|comer|dieta|macro|macros|deficit)\b/.test(n) && p){
     const r=buildRecommendation(p);
-    return `Tu objetivo: <b>${r.kcal} kcal/día</b>y <b>${r.prot} g de proteína</b> `+
+    return `Tu objetivo: <b>${r.kcal} kcal/día</b> y <b>${r.prot} g de proteína</b> `+
       `(gasto estimado ${r.tdee}${r.cardioDia?` + ${r.cardioDia} de cardio`:''} kcal).`;
   }
   if(/\b(volumen|serie|series)\b/.test(n) && DAYS.length){
     const v=planVolume(DAYS), mus=botMusEn(q);
-    if(mus) return `En tu plan haces <b>${v[mus]||0} series/semana</b>de ${MUSCLE_ES[mus]||mus}.`;
+    if(mus) return `En tu plan haces <b>${v[mus]||0} series/semana</b> de ${MUSCLE_ES[mus]||mus}.`;
     return `Series por semana en tu plan: `+
       Object.keys(v).sort((a,b)=>v[b]-v[a]).map(m=>`${MUSCLE_ES[m]||m} <b>${v[m]}</b>`).join(' · ');
   }
@@ -12000,7 +12000,7 @@ async function llmEncender(){
     });
     _llmEstado='on';
     localStorage.setItem('atlas_llm','1');
-    if(_llmMsg) _llmMsg.innerHTML=` <b>${info.n}</b>listo. Pregúntame lo que quieras, también sobre tu propio entrenamiento.`;
+    if(_llmMsg) _llmMsg.innerHTML=` <b>${info.n}</b> listo. Pregúntame lo que quieras, también sobre tu propio entrenamiento.`;
     llmPintaBarra();
     return true;
   }catch(e){
@@ -12143,7 +12143,7 @@ ${botFichaUsuario()}
     const dicho=botNorm(m.replace(/^Fuente:\s*/i,'')).slice(0,45);
     return dicho.length>8 && !ps.some(p=>botNorm(p.cite).indexOf(dicho.slice(0,30))>=0);
   });
-  if(inventadas.length) botMsg(`<div class="bwarn">El modelo ha citado <b>${inventadas.length}</b>fuente`+
+  if(inventadas.length) botMsg(`<div class="bwarn">El modelo ha citado <b>${inventadas.length}</b> fuente`+
     `${inventadas.length>1?'s':''} que no esta entre las que le pase. Fiate de las fichas de abajo, `+
     `que salen del dato y no de lo que ha escrito.</div>`);
   /* El modelo redacta, pero el DOI que abres sale del dato, no de su texto. */
@@ -12310,7 +12310,7 @@ function botPersonalOffline(q){
     const f=botFuerza();
     if(!f.hay) return `Para puntuarte la fuerza necesito tus marcas y ${f.motivo}. `+
       `Registra unas cuantas series en press banca, sentadilla o peso muerto y te doy la nota.`;
-    return `<b>${f.nota}/10</b> — nivel <b>${f.nivel}</b>para tus ${f.peso} kg.`+
+    return `<b>${f.nota}/10</b> — nivel <b>${f.nivel}</b> para tus ${f.peso} kg.`+
       `<div class="bpt">`+f.filas.map(x=>`· ${x.ej}: <b>${x.rm} kg</b> (${x.ratio}× tu peso) → ${x.nota}/10, ${x.nivel}`).join('<br>')+`</div>`+
       `<span class="bhint">Comparo tu 1RM estimado con tu peso corporal usando las referencias de fuerza `+
       `habituales en sala. Es una orientación, no sale de los 1.022 artículos.</span>`;
@@ -12321,7 +12321,7 @@ function botPersonalOffline(q){
   const fuera=Object.keys(v).filter(m=>v[m]<10||v[m]>20);
   const L=[`Vas por la <b>semana ${wk}</b>, fase <b>${fa.etiqueta}</b>. `+
     (sesiones===0 ? `Todavía no has registrado ninguna sesión.`
-                  : `Llevas <b>${sesiones}</b>sesión${sesiones===1?'':'es'} registrada${sesiones===1?'':'s'}.`)];
+                  : `Llevas <b>${sesiones}</b> sesión${sesiones===1?'':'es'} registrada${sesiones===1?'':'s'}.`)];
   if(av && av.partes) L.push(av.partes.map(x=>`· ${x.k}: ${x.det}`).join('<br>'));
   L.push(fuera.length
     ? `Volumen fuera de la ventana 10–20 en: <b>${fuera.map(m=>`${MUSCLE_ES[m]||m} (${v[m]})`).join(', ')}</b>.`
@@ -12369,7 +12369,7 @@ ${plano}
 function botMsg(html, cls, extra){
   const b=$("#botBody"), d=document.createElement('div');
   d.className='bmsg '+(cls||'bot');
-  /* Por toda la app se escribe `<b>${x}</b>de` sin espacio y salía \"semana 1de tu plan\".
+  /* Por toda la app se escribe `<b>${x}</b> de` sin espacio y salía \"semana 1de tu plan\".
      Una sola guarda aquí, que es por donde pasan todos los mensajes, en vez de treinta
      espacios repartidos. No toca la puntuación ni las etiquetas. */
   d.innerHTML=String(html+(extra||'')).replace(/<\/b>(?=[0-9A-Za-zÀ-ſ¿¡])/g,'</b> ');
@@ -12406,7 +12406,7 @@ function botBienvenida(){
             "Del 1 al 10, ¿qué tan fuerte soy?","¿Qué dice la ciencia del fallo muscular?",
             "Compara creatina y cafeína","Cambia el press banca"];
   botMsg(`${botVar(['Hola','Buenas','¿Qué tal'])}${PROFILE?', '+botEsc(PROFILE):''}. Soy <b>Atlas</b>, tu entrenador.<br>`+
-    (p?`Vas por la <b>semana ${currentWeek()}</b>de tu plan. `:`Aún no has hecho el test, así que de momento te hablo solo de la ciencia. `)+
+    (p?`Vas por la <b>semana ${currentWeek()}</b> de tu plan. `:`Aún no has hecho el test, así que de momento te hablo solo de la ciencia. `)+
     `Pregúntame lo que quieras: qué ejercicios hacer, cómo vas, qué dice la evidencia de algo, `+
     `o pídeme que te cambie la rutina — eso siempre te lo pregunto antes.<br>`+
     `<span class="bhint">Llevo dentro ${n} artículos revisados por pares: de cada uno tengo título, autores, DOI `+
@@ -12473,7 +12473,7 @@ function botAvisoVol(mus, delta){
   const v=planVolume(DAYS), antes=v[mus]||0, ahora=antes+delta;
   const fuera = ahora<10 ? 'por debajo de 10' : (ahora>20 ? 'por encima de 20' : '');
   return `<br><span style="color:var(--muted);font-size:12.5px">${MUSCLE_ES[mus]||mus}: `+
-    `${antes} → <b>${ahora}</b>series/semana${fuera?` — te deja <b>${fuera}</b>, fuera de la ventana 10–20`:''}.</span>`;
+    `${antes} → <b>${ahora}</b> series/semana${fuera?` — te deja <b>${fuera}</b>, fuera de la ventana 10–20`:''}.</span>`;
 }
 
 /* ---------- ¿me está pidiendo tocar el plan? ---------- */
@@ -12519,7 +12519,7 @@ function botPlanIntent(q){
     return {prop:`Meto <b>${nuevo.n}</b> (${nuevo.sr}, RIR ${nuevo.rir}) en <b>${botNomDia(di)}</b>.`+botAvisoVol(mus, pr.sets),
       apply:()=>{ ensureEditablePlan();
         DAYS[di].ex.push(nuevo);
-        return botAplicado(`Añadido: <b>${nuevo.n}</b>en ${botNomDia(di)}.`); }};
+        return botAplicado(`Añadido: <b>${nuevo.n}</b> en ${botNomDia(di)}.`); }};
   }
 
   /* 2 · subir o bajar series */
@@ -12530,7 +12530,7 @@ function botPlanIntent(q){
       const s=ex.e.sets||3, ns=Math.max(1, Math.min(8, s+delta));
       if(ns===s) return {msg:`${ex.e.n} ya está en ${s} series y no puedo ${delta>0?'subir':'bajar'} más.`};
       const m1=(MUSCLES[ex.e.id]||[])[0];
-      return {prop:`${delta>0?'Subo':'Bajo'} <b>${ex.e.n}</b>de <b>${s}</b>a <b>${ns}</b>series en ${botNomDia(ex.di)}.`
+      return {prop:`${delta>0?'Subo':'Bajo'} <b>${ex.e.n}</b> de <b>${s}</b> a <b>${ns}</b> series en ${botNomDia(ex.di)}.`
           + (m1?botAvisoVol(m1, delta):''),
         apply:()=>{ ensureEditablePlan();
           const e=DAYS[ex.di].ex[ex.ei];
@@ -12546,7 +12546,7 @@ function botPlanIntent(q){
       const el=delta>0 ? t[0] : t[t.length-1];
       const s=el.e.sets||3, ns=Math.max(1, Math.min(8, s+delta));
       if(ns===s) return {msg:`No puedo ${delta>0?'subir':'bajar'} más series ahí.`};
-      return {prop:`${delta>0?'Subo':'Bajo'} <b>${el.e.n}</b>de <b>${s}</b>a <b>${ns}</b>series `+
+      return {prop:`${delta>0?'Subo':'Bajo'} <b>${el.e.n}</b> de <b>${s}</b> a <b>${ns}</b> series `+
           `(${botNomDia(el.di)}), que es el ejercicio de ${MUSCLE_ES[mus]||mus} con ${delta>0?'menos':'más'} volumen.`
           + botAvisoVol(mus, delta),
         apply:()=>{ ensureEditablePlan();
@@ -12565,7 +12565,7 @@ function botPlanIntent(q){
     if(di<0) return {msg:`¿Qué sesión quieres mover a ${DIA_NOM[destino]}? Dime «mueve la pierna al ${DIA_NOM[destino].toLowerCase()}» o el día actual («mueve el lunes al ${DIA_NOM[destino].toLowerCase()}»).`};
     if(DAYS[di].wd===destino) return {msg:`${botNomDia(di)} ya lo entrenas el ${DIA_NOM[destino].toLowerCase()}.`};
     const st=estadoDestino(di, destino);
-    return {prop:`Muevo <b>${botNomDia(di)}</b>al <b>${DIA_NOM[destino].toLowerCase()}</b>.<br>`+
+    return {prop:`Muevo <b>${botNomDia(di)}</b> al <b>${DIA_NOM[destino].toLowerCase()}</b>.<br>`+
         `<span style="color:${st.tipo==='riesgo'?'var(--warn)':'var(--muted)'};font-size:12.5px">${st.txt}${st.aviso?'. '+st.aviso:''}</span>`,
       apply:()=>{ aplicarCambioDia(di, destino);
         return `Movido: ${botNomDia(DAYS.findIndex(d=>d.wd===destino))} el ${DIA_NOM[destino].toLowerCase()}.`; }};
@@ -12582,7 +12582,7 @@ function botPlanIntent(q){
     const alt=altList(ensureEditablePlan(), ex.di, ex.ei);
     if(!alt) return {msg:`${ex.e.n} no tiene equivalente: ese hueco no se puede cambiar.`};
     if(alt.lista.length<2) return {msg:`No tengo otro ejercicio de ${MUSCLE_ES[alt.mus]||alt.mus} compatible con tu equipo y tus lesiones.`};
-    return {prop:`Cambio <b>${ex.e.n}</b>por <b>${alt.siguiente.n}</b>en ${botNomDia(ex.di)}.<br>`+
+    return {prop:`Cambio <b>${ex.e.n}</b> por <b>${alt.siguiente.n}</b> en ${botNomDia(ex.di)}.<br>`+
         `<span style="color:var(--muted);font-size:12.5px">Mismo músculo (${MUSCLE_ES[alt.mus]||alt.mus}) y mismas series. `+
         `Hay ${alt.lista.length-1} alternativa${alt.lista.length>2?'s':''} más; pídemelo otra vez para ir pasando.</span>`,
       apply:()=>{ const id=ex.e.id, di=ex.di;
@@ -12999,8 +12999,8 @@ async function nubeSubir(forzar){
       if(serv && guardado.ts && new Date(serv)>new Date(guardado.ts)){
         _nubeEstado='conflicto'; renderNube();
         const ok=await askConfirm(
-          `Otro dispositivo guardó cambios de <b>${PROFILE}</b>después que este.<br><br>`+
-          `Si subes, se quedan los de <b>este</b>móvil y se pierden los del otro.`,
+          `Otro dispositivo guardó cambios de <b>${PROFILE}</b> después que este.<br><br>`+
+          `Si subes, se quedan los de <b>este</b> móvil y se pierden los del otro.`,
           'Subir los de este móvil', 'Hay dos versiones');
         if(!ok){ await nubeBajar(); return; }
       }
