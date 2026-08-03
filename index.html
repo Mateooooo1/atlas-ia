@@ -72,7 +72,14 @@
      el móvil a un brazo y el pulso a 140. */
   --t-xs:12px;   /* etiqueta, leyenda, pie                                   */
   --t-sm:13px;   /* texto secundario, nota, tag                              */
-  --t-md:15px;   /* cuerpo, campo, opción                                    */
+  --t-md:15px;
+  /* Safari en iOS hace zoom SOLO al enfocar un campo por debajo de 16px, y no
+     lo deshace: te deja la pagina desencuadrada. En una app donde escribes el
+     peso en mitad de una serie eso pasa decenas de veces por sesion. 16px es
+     el umbral exacto de Safari, no una preferencia estetica; contra --t-md
+     (15px) la diferencia no se aprecia. Los campos grandes de peso y reps
+     van a 28px y no pasan por aqui. */
+  --t-input:16px;   /* cuerpo, campo, opción                                    */
   --t-lg:17px;   /* título de tarjeta, h3 de panel                           */
   --t-xl:21px;   /* h2 de sección                                            */
   --t-2xl:28px;  /* cifra destacada                                          */
@@ -247,7 +254,7 @@ header{position:sticky;top:0;z-index:20;
 .setrow input::placeholder{color:var(--n-600);font-weight:400;font-size:var(--t-md)}
 .setrow input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--acc-ghost)}
 .setrow .u{font-size:var(--t-xs);color:var(--muted);width:26px;flex:0 0 auto}
-.setrow input.lastre{flex:0 0 78px;max-width:78px;font-size:var(--t-md);color:var(--muted);font-weight:400}
+.setrow input.lastre{flex:0 0 78px;max-width:78px;font-size:var(--t-input);color:var(--muted);font-weight:400}
 /* Superserie: las dos mitades de una misma serie, agrupadas y con una línea al
    costado para que se lea que van juntas y no como dos series sueltas. */
 .ssgrupo{margin:var(--s3) 0 var(--s4);padding-left:var(--s3);border-left:2px solid var(--line)}
@@ -307,7 +314,7 @@ nav.tabbar svg{width:22px;height:22px}
 .kv{display:flex;justify-content:space-between;gap:var(--s3);padding:var(--s2) 0;font-size:var(--t-sm)}
 .kv b{color:var(--txt);font-variant-numeric:tabular-nums}
 select{width:100%;min-height:var(--tap);background:var(--bg2);border:1px solid var(--line);
-  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-md);margin:var(--s1) 0 var(--s3);
+  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-input);margin:var(--s1) 0 var(--s3);
   appearance:none;-webkit-appearance:none;cursor:pointer;
   background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
   background-position:calc(100% - 18px) center,calc(100% - 13px) center;
@@ -521,7 +528,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .cat-filters{display:flex;gap:var(--s2);flex-wrap:wrap;margin:var(--s2) 0}
 .cat-filters select,.cat-filters input{flex:1;min-width:110px;margin:0}
 .cat-filters input{min-height:var(--tap);background:var(--bg2);border:1px solid var(--line);
-  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-md)}
+  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-input)}
 .cat-card{display:flex;gap:var(--s3);background:var(--card);border-radius:var(--r2);
   padding:var(--s3);margin:var(--s2) 0;align-items:center}
 .cat-card img{width:66px;height:66px;object-fit:cover;border-radius:var(--r1);background:var(--photo);flex:0 0 auto}
@@ -580,7 +587,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .modal .close{margin-top:var(--s4)}
 .modal label{display:block;font-size:var(--t-xs);color:var(--muted);margin:var(--s3) 0 var(--s1);font-weight:600}
 .modal input{width:100%;min-height:var(--tap);background:var(--bg2);border:1px solid var(--line);
-  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-md)}
+  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-input)}
 .modal input:focus{outline:none;border-color:var(--accent)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2)}
 .bkrow{display:flex;align-items:center;gap:var(--s3);justify-content:space-between;
@@ -621,7 +628,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .nube-t{font-size:var(--t-md);font-weight:700;display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s3)}
 .nube-p{font-size:var(--t-xs);color:var(--muted);margin:var(--s2) 0 0;line-height:1.5}
 .nubebox input{width:100%;min-height:var(--tap);background:var(--card2);border:1px solid var(--line);
-  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-md);margin-bottom:var(--s2)}
+  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-input);margin-bottom:var(--s2)}
 .nubebox input:focus{outline:none;border-color:var(--accent)}
 .nube-btns{display:flex;gap:var(--s2);margin-top:var(--s2)}
 .nube-btns .btn{font-size:var(--t-sm)}
@@ -640,7 +647,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .onb{text-align:left}
 .onb label{display:block;font-size:var(--t-xs);color:var(--muted);margin:var(--s4) 0 var(--s1);font-weight:600}
 .onb input,.onb select{width:100%;min-height:var(--tap);background:var(--bg2);border:1px solid var(--line);
-  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-md);margin:0}
+  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-input);margin:0}
 .onb .row2{display:flex;gap:var(--s2)}.onb .row2>div{flex:1}
 .chips-sel{display:flex;flex-wrap:wrap;gap:var(--s2)}
 .chips-sel button{min-height:var(--tap);background:transparent;border:1px solid var(--line);
@@ -916,7 +923,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .botin{display:flex;gap:var(--s2);padding:var(--s3);border-top:1px solid var(--line);
   flex:0 0 auto;background:var(--bg2)}
 .botin input{flex:1;min-width:0;min-height:var(--tap);background:var(--card);border:1px solid var(--line);
-  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-md)}
+  color:var(--txt);border-radius:var(--r2);padding:0 var(--s3);font-size:var(--t-input)}
 .botin input:focus{outline:none;border-color:var(--accent)}
 .botin button{flex:0 0 auto;width:var(--tap);min-height:var(--tap);border:none;border-radius:var(--r2);
   background:var(--accent);color:var(--ink);font-size:var(--t-lg);cursor:pointer}
@@ -934,7 +941,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .llmbar.on .llmsw{background:var(--acc-ghost);border-color:var(--acc-line);color:var(--accent)}
 .llmbar.cargando .llmsw{border-color:var(--warn-line);color:var(--warn)}
 .llmbar select{flex:1;min-width:0;min-height:var(--tap);background:var(--card);border:1px solid var(--line);
-  color:var(--muted);border-radius:var(--r1);padding:0 var(--s2);font-size:var(--t-xs);margin:0}
+  color:var(--muted);border-radius:var(--r1);padding:0 var(--s2);font-size:var(--t-input);margin:0}
 .lbar{height:6px;border-radius:var(--rp);background:var(--bg2);overflow:hidden;margin-top:var(--s2)}
 .lbar i{display:block;height:100%;background:var(--accent)}
 .lthink{color:var(--muted);font-style:italic}
@@ -1200,8 +1207,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
     <div class="panel">
       <div class="cat-filters">
         <input id="catQuery" placeholder="Buscar…" oninput="renderCatalog()">
-        <select id="catMuscle" onchange="renderCatalog()"></select>
-        <select id="catEquip" onchange="renderCatalog()"></select>
+        <select id="catMuscle" aria-label="Filtrar por músculo" onchange="renderCatalog()"></select>
+        <select id="catEquip" aria-label="Filtrar por equipo" onchange="renderCatalog()"></select>
       </div>
       <div id="catStatus" class="barlbl"></div>
       <div id="catList"></div>
@@ -1335,7 +1342,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
   <div class="box" style="max-width:420px;text-align:left">
     <h3 style="margin-top:0">¿Qué discos pongo?</h3>
     <div class="grid2">
-      <div><label>Peso objetivo</label><input id="plTarget" inputmode="decimal"></div>
+      <div><label>Peso objetivo</label><input id="plTarget" aria-label="Peso objetivo en la barra" inputmode="decimal"></div>
       <div><label>Peso de la barra</label><select id="plBar"><option value="20" selected>Barra 20 kg</option><option value="15">Barra 15 kg</option><option value="10">Barra corta 10 kg</option><option value="0">Sin barra / mancuerna</option></select></div>
     </div>
     <label style="margin-top:8px">Discos que tienes (por lado)</label>
