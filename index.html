@@ -2853,6 +2853,13 @@ function guardarAtletaImportado(nombre, o){
     localStorage.setItem('atlas_deleted', JSON.stringify(del));
   }catch(e){}
   addProfileEntry(nombre);
+  /* NO se marca para subir. Un atleta importado son los datos de OTRA persona:
+     subirlo solo a tu cuenta de Supabase es meter datos ajenos en tu nube sin que
+     ninguno de los dos lo haya pedido. Si algun dia quieres subirlo, lo haces a
+     mano desde el boton de sincronizar estando en ese perfil. */
+  try{
+    const m=nubeIds(); if(m[nombre]){ delete m[nombre]; localStorage.setItem(NUBE_IDS, JSON.stringify(m)); }
+  }catch(e){}
   return nombre;
 }
 
@@ -2884,9 +2891,20 @@ function importarAtleta(){
       const fotos=o.__fotos||{};
       try{ guardarAtletaImportado(nombre, o); }
       catch(e){ toast(e.message); return; }
+      /* Las fotos del archivo llegan con SU id. Si coincide con uno tuyo -y los
+         ids son correlativos, asi que coincide a menudo- te machacaban la foto
+         propia. Se les da un id nuevo y se reescriben las referencias del atleta
+         importado para que apunten a el. */
       let n=0;
+      const guardado=JSON.parse(localStorage.getItem('recomp_v1_'+nombre)||'{}');
+      const mapa={};
       for(const id of Object.keys(fotos)){
-        try{ await fotoGuardarLocal(id, dataURLABlob(fotos[id])); n++; }catch(e){}
+        const nuevo='imp_'+Date.now().toString(36)+'_'+n;
+        try{ await fotoGuardarLocal(nuevo, dataURLABlob(fotos[id])); mapa[id]=nuevo; n++; }catch(e){}
+      }
+      if(n){
+        (guardado.photos||[]).forEach(p=>{ if(mapa[p.id]){ p.id=mapa[p.id]; delete p.nube; } });
+        localStorage.setItem('recomp_v1_'+nombre, JSON.stringify(guardado));
       }
       renderProfiles();
       toast(`${nombre} anadido${n?` \u00b7 ${n} foto${n===1?'':'s'}`:''}`);
@@ -5082,8 +5100,16 @@ function deletePhoto(id){
 }
 
 /* ===================== CATÁLOGO DE EJERCICIOS (dataset free-exercise-db) ===================== */
-const CAT_CDN='https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/dist/exercises.json';
-const CAT_IMG='https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises/';
+/* FIJADO A UN COMMIT, no a @main. Con la rama movil, quien controle ese repo
+   -o cualquiera que cuele un cambio- podia meter un nombre de ejercicio con una
+   etiqueta dentro y ejecutarla en el origen de la app, porque el catalogo se
+   pinta con innerHTML y ademas se guarda en IndexedDB, o sea que el veneno
+   sobrevivia aunque el repo se limpiara. Con el commit fijo, lo que se descarga
+   hoy es lo mismo que se reviso.
+   Para actualizar el catalogo: se cambia el sha aqui, a conciencia. */
+const CAT_SHA='b0eed061e1c832b3ed815fbaa4b45b3cdc14df49';
+const CAT_CDN='https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@'+CAT_SHA+'/dist/exercises.json';
+const CAT_IMG='https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@'+CAT_SHA+'/exercises/';
 let CATALOG=null, _catLoading=false;
 async function ensureCatalog(){
   if(CATALOG||_catLoading) return; _catLoading=true;
@@ -5105,8 +5131,8 @@ async function ensureCatalog(){
 function buildCatFilters(){
   const muscles=[...new Set(CATALOG.flatMap(e=>e.primaryMuscles||[]))].sort();
   const equip=[...new Set(CATALOG.map(e=>e.equipment).filter(Boolean))].sort();
-  $("#catMuscle").innerHTML='<option value="">Todos los músculos</option>'+muscles.map(m=>`<option>${m}</option>`).join('');
-  $("#catEquip").innerHTML='<option value="">Todo el equipo</option>'+equip.map(m=>`<option>${m}</option>`).join('');
+  $("#catMuscle").innerHTML='<option value="">Todos los músculos</option>'+muscles.map(m=>`<option>${duoEsc(m)}</option>`).join('');
+  $("#catEquip").innerHTML='<option value="">Todo el equipo</option>'+equip.map(m=>`<option>${duoEsc(m)}</option>`).join('');
 }
 function renderCatalog(){
   if(!CATALOG){ ensureCatalog(); return; }
@@ -5119,11 +5145,15 @@ function renderCatalog(){
   const total=res.length; res=res.slice(0,80);
   $("#catStatus").textContent=`${total} resultado${total===1?'':'s'}${total>80?' (mostrando 80)':''}`;
   $("#catList").innerHTML=res.map(e=>{
-    const img=e.images&&e.images[0]?CAT_IMG+e.images[0]:'';
+    /* Escapado aunque el catalogo venga de un commit fijo: defensa en profundidad,
+       porque esto se guarda en IndexedDB y sobreviviria a que se limpiara el repo.
+       encodeURI en el src: una ruta con comilla rompia el atributo y dejaba plantar
+       un manejador propio. */
+    const img=e.images&&e.images[0]?CAT_IMG+encodeURI(String(e.images[0])):'';
     const tags=[(e.primaryMuscles||[])[0],e.equipment,e.level].filter(Boolean)
-      .map(t=>`<span class="tag">${t}</span>`).join('');
-    return `<div class="cat-card">${img?`<img loading="lazy" src="${img}" alt="">`:'<div class="cat-card" style="width:66px;height:66px"></div>'}
-      <div class="m"><h4>${e.name}</h4><div class="tags">${tags}</div></div></div>`;
+      .map(t=>`<span class="tag">${duoEsc(t)}</span>`).join('');
+    return `<div class="cat-card">${img?`<img loading="lazy" src="${duoEsc(img)}" alt="">`:'<div class="cat-card" style="width:66px;height:66px"></div>'}
+      <div class="m"><h4>${duoEsc(e.name)}</h4><div class="tags">${tags}</div></div></div>`;
   }).join('') || `<div class="empty">Sin resultados con esos filtros.</div>`;
 }
 
@@ -13193,11 +13223,25 @@ async function nubeEntrar(email, pass){
   nubeGuardaSes(s);
   return true;
 }
-function nubeSalir(){
+async function nubeSalir(){
+  /* Se avisa al servidor ANTES de tirar el token. Antes solo se borraba de aqui:
+     el refresh_token seguia siendo valido en Supabase, asi que uno robado -por el
+     XSS que habia, por ejemplo- funcionaba semanas despues aunque hubieras cerrado
+     sesion. Ahora /auth/v1/logout lo revoca de verdad.
+     Si falla la red se cierra igual en local: quedarte dentro seria peor. */
+  const ses=_nubeSes;
+  if(ses && ses.access_token){
+    try{
+      await fetch(_nube.url.replace(/\/+$/,'')+'/auth/v1/logout?scope=global', {
+        method:'POST',
+        headers:{apikey:_nube.key, Authorization:'Bearer '+ses.access_token},
+      });
+    }catch(e){ /* sin red: al menos se va de este movil */ }
+  }
   nubeGuardaSes(null);
   localStorage.removeItem(NUBE_IDS);
   renderNube();
-  toast('Sesión cerrada · tus datos siguen en este móvil');
+  toast(ses ? 'Sesión cerrada en todos tus dispositivos' : 'Sesión cerrada');
 }
 
 /* ---------- subir ----------
