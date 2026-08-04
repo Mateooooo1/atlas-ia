@@ -1881,6 +1881,11 @@ function renderSupTable(){
    móvil ajeno eso son dos desconocidos con los que nadie sabe qué hacer: o los
    borras, o acabas entrenando bajo el nombre de otro. Un instalador nuevo empieza
    con la lista vacía y la tarjeta de "Nuevo usuario", que ya existía. */
+/* Aqui arriba y no junto al resto de saneadores: loadProfilesList lo usa y se
+   ejecuta al cargar la pagina, antes de llegar a la seccion de perfiles. */
+const NOMBRE_SEGURO = s => String(s == null ? '' : s)
+  .replace(/[<>"'`\\&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+
 const DEFAULT_PROFILES = {};
 const PROFILE_COLORS = ["#00d29a","#ff7eb6","#36b3ff","#ffb454","#c084fc","#ffd166","#4ade80"];
 let PROFILES = {};
@@ -1900,7 +1905,10 @@ function loadProfilesList(){
   for(const k of Object.keys(localStorage)){
     if(!k.startsWith("recomp_v1_")) continue;
     const nombre=k.slice(10);
-    if(!nombre || PROFILES[nombre] || del.includes(nombre)) continue;
+    /* Un nombre con comillas solo puede haber llegado aqui por una version vieja
+       o por una clave escrita a mano: se ignora en vez de adoptarlo. */
+    if(!nombre || nombre !== NOMBRE_SEGURO(nombre)) continue;
+    if(PROFILES[nombre] || del.includes(nombre)) continue;
     PROFILES[nombre] = extra[nombre] = PROFILE_COLORS[n++ % PROFILE_COLORS.length];
     adoptado=true;
   }
@@ -1965,11 +1973,6 @@ function planLimpio(plan){
     })),
   }));
 }
-/* El nombre del atleta tambien viaja en esos archivos y acaba dentro de
-   onclick="selectProfile('...')" en renderProfiles. Comprobado explotable. */
-const NOMBRE_SEGURO = s => String(s == null ? '' : s)
-  .replace(/[<>"'`\\&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
-
 /* Borra un usuario y TODOS sus datos (series, fotos, plan). */
 async function deleteUser(name, ev){
   if(ev) ev.stopPropagation();
@@ -13243,6 +13246,13 @@ async function nubeBajar(){
          un movil donde ya habias importado algo con veneno dentro. */
       const dat=f.data||{}; dat.plan=planLimpio(dat.plan);
       localStorage.setItem('recomp_v1_'+f.nombre, JSON.stringify(dat));
+      /* Saneado tambien aqui: la fila pudo escribirla otro cliente, o tu mismo
+         desde un movil con una importacion envenenada. El nombre acaba dentro de
+         onclick="selectProfile('...')", donde escapar a HTML no basta porque el
+         navegador decodifica las entidades ANTES de interpretar el JS. */
+      const nomLimpio = NOMBRE_SEGURO(f.nombre);
+      if(!nomLimpio) return;
+      f.nombre = nomLimpio;
       if(!DEFAULT_PROFILES[f.nombre]) extra[f.nombre]=f.color||PROFILE_COLORS[Object.keys(extra).length%PROFILE_COLORS.length];
       nubeGuardaId(f.nombre, f.id, f.updated_at);
     });
