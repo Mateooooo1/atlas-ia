@@ -712,6 +712,20 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .tips li:before{content:"→";position:absolute;left:2px;color:var(--accent);font-weight:800}
 
 /* ── Semana y fase del mesociclo ───────────────────────────────────────── */
+/* Tarjeta de descanso: mismo lenguaje que el resto de tarjetas, pero en el tono
+   secundario para que no compita con la sesion de entrenamiento. */
+.descanso{display:flex;gap:var(--s3);align-items:center;justify-content:space-between;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r2);
+  padding:var(--s3);margin:0 0 var(--s3);flex-wrap:wrap}
+.descanso.ok{border-color:var(--acc-line)}
+.dsc-txt{flex:1;min-width:180px;display:flex;flex-direction:column;gap:2px}
+.dsc-txt b{font-size:var(--t-lg);color:var(--txt)}
+.dsc-txt span{font-size:var(--t-sm);color:var(--muted)}
+.dsc-txt small{font-size:var(--t-xs);color:var(--muted);margin-top:var(--s1)}
+.dsc-btn{flex:0 0 auto;min-height:var(--tap);padding:0 var(--s3);border:1px solid var(--acc-line);
+  background:transparent;color:var(--accent);border-radius:var(--r1);font-family:inherit;
+  font-size:var(--t-input);font-weight:600;cursor:pointer}
+.descanso.ok .dsc-btn{background:var(--accent);color:var(--ink,#04120c);border-color:var(--accent)}
 .wkbar{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s3)}
 .wknum{font-size:var(--t-sm);font-weight:800}
 .wktag{font-size:var(--t-xs);font-weight:800;color:var(--ink);padding:3px var(--s2);
@@ -2203,6 +2217,65 @@ function renderDayChips(){
 }
 function setDay(i){ curIdx=i; renderDayChips(); renderDay(); if(!$("#v-day").classList.contains("on")) tab('day'); window.scrollTo(0,0); }
 
+/* =====================  DIAS DE DESCANSO  =====================
+
+   Antes un dia sin entrenamiento era un hueco: la app abria el primer dia del
+   plan, que no es el de hoy, y no habia nada que hacer. Eso ademas ensena algo
+   falso, porque el descanso es parte del plan, no una pausa del plan.
+
+   Ahora el descanso se puede MARCAR igual que una sesion, con su frase del dia.
+   La frase sale de la fecha, no del azar: asi no cambia si repintas la pantalla,
+   y a dos personas que entrenan juntas les toca la misma. */
+const FRASES_DESCANSO = [
+  ['El musculo no crece entrenando.', 'Crece mientras descansas. Hoy tambien estas trabajando.'],
+  ['Descansar es parte del plan.', 'No es el dia que te saltas: es el dia que te deja volver mas fuerte.'],
+  ['Hoy toca no hacer nada.', 'Y hacerlo bien: duerme tus 7-9 h y come tu proteina.'],
+  ['La constancia no es entrenar cada dia.', 'Es no desaparecer. Aqui sigues.'],
+  ['Nadie se pone fuerte en el gimnasio.', 'Te pones fuerte recuperandote de lo que hiciste ahi.'],
+  ['Un dia libre no borra la semana.', 'Lo que la borra es no volver manana.'],
+  ['Piensa en la sesion que viene.', 'Llegar descansado vale mas que llegar motivado.'],
+];
+const esDiaDescanso = () => DB.plan && DB.plan.length && !(new Date().getDay() in dayByWeekday);
+const claveDescanso = () => 'descanso';
+const descansoHecho = () => !!((DB.done[today()]||{})[claveDescanso()]);
+
+function marcaDescanso(){
+  const t=today(); DB.done[t]=DB.done[t]||{};
+  const k=claveDescanso();
+  if(DB.done[t][k]) delete DB.done[t][k]; else DB.done[t][k]=true;
+  save(); renderDay(); renderOverview();
+  if(DB.done[t][k]) toast('Descanso registrado \u00b7 nos vemos en la siguiente');
+}
+
+/* Dias seguidos apareciendo por la app: cuentan tanto entrenar como marcar el
+   descanso. Es lo que de verdad mide la constancia, y no castiga por descansar. */
+function rachaDias(){
+  const dias=new Set(Object.keys(DB.done||{}).filter(d=>Object.keys(DB.done[d]||{}).length));
+  Object.values(DB.logs||{}).flat().forEach(s=>dias.add(s.date));
+  let n=0; const x=new Date();
+  for(;;){
+    const k=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+    if(dias.has(k)){ n++; x.setDate(x.getDate()-1); }
+    else if(n===0 && k===today()){ x.setDate(x.getDate()-1); }   // hoy aun no cuenta
+    else break;
+  }
+  return n;
+}
+
+function tarjetaDescanso(){
+  if(!esDiaDescanso()) return '';
+  const d=new Date();
+  const i=(d.getFullYear()*372 + d.getMonth()*31 + d.getDate()) % FRASES_DESCANSO.length;
+  const [tit, sub]=FRASES_DESCANSO[i];
+  const hecho=descansoHecho(), r=rachaDias();
+  return `<div class="descanso ${hecho?'ok':''}">
+    <div class="dsc-txt"><b>${duoEsc(tit)}</b><span>${duoEsc(sub)}</span>
+      ${r>1?`<small>Llevas <b>${r} d\u00edas</b> seguidos apareciendo por aqu\u00ed.</small>`:''}</div>
+    <button class="dsc-btn" onclick="marcaDescanso()" aria-pressed="${hecho}">
+      ${hecho?'\u2713 Descanso registrado':'Marcar descanso de hoy'}</button>
+  </div>`;
+}
+
 function renderDay(){
   const d = DAYS[curIdx];
   $("#dayTitle").textContent = d.title;
@@ -2216,6 +2289,9 @@ function renderDay(){
   /* Pasadas las semanas que pedia tu meta, "Semana 34 de 33" no significa nada.
      El ciclo sigue —y la descarga tambien— pero conviene rehacer el test. */
   const cumplido = typeof planCumplido==='function' && planCumplido();
+  /* La tarjeta de descanso va DELANTE del banner de la semana, y se anade
+     despues para no tocar el ternario de abajo: envolverlo dejaba un parentesis
+     sin cerrar y la app no arrancaba. */
   $("#weekBanner").innerHTML = DB.profile
     ? `<div class="wkbar"><span class="wknum" style="color:${col}">Semana ${wk}${(totSem&&!cumplido)?` de ${totSem}`:''}</span>
          <span class="wktag" style="background:${col}">${fase.etiqueta}</span>
@@ -2227,6 +2303,8 @@ function renderDay(){
          y te armo el siguiente bloque.</div>`
         :`<div class="wknote">${fase.nota}</div>`}`
     : '';
+  const dsc = tarjetaDescanso();   // cadena vacia si hoy si entrenas
+  if(dsc) $("#weekBanner").insertAdjacentHTML("afterbegin", dsc);
   $("#dayWhy").innerHTML = "<b>Por qué:</b> "+d.why;
   const doneMap = DB.done[today()]||{};
   let doneCount = d.ex.filter(e=>doneMap[doneKey(d,e.id)]).length;
@@ -12952,6 +13030,16 @@ function botSelfTest(){
   ok(botRecomienda('me duele el hombro al entrenar')===null, 'se queda con una lesión');
   ok(botRecomienda('cual es el mejor momento para entrenar pierna')===null, 'se queda con una de horario');
   ok(botRecomienda('que dice la ciencia de los ejercicios de pecho')===null, 'se queda con una de evidencia');
+  /* Descanso: la frase tiene que ser estable en el dia y la racha no puede
+     castigar por descansar. */
+  ok(FRASES_DESCANSO.length>=5, 'faltan frases de descanso');
+  ok(FRASES_DESCANSO.every(f=>Array.isArray(f)&&f.length===2&&f[0]&&f[1]), 'una frase de descanso esta mal formada');
+  (function(){
+    const a=tarjetaDescanso(), b=tarjetaDescanso();
+    ok(a===b, 'la tarjeta de descanso cambia entre repintados');
+    ok(esDiaDescanso() ? a.length>0 : a==='', 'la tarjeta no coincide con si hoy toca descansar');
+  })();
+  ok(typeof rachaDias()==='number' && rachaDias()>=0, 'la racha no devuelve un numero');
   /* Traer a otro atleta NO puede tocar tus datos: es justo lo que hacia mal
      importData() y por lo que no se podian juntar dos tests. */
   (function(){
