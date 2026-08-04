@@ -1893,6 +1893,28 @@ function loadProfilesList(){
   let extra={}, del=[];
   try{ extra=JSON.parse(localStorage.getItem("atlas_profiles")||"{}"); }catch(e){}
   try{ del=JSON.parse(localStorage.getItem("atlas_deleted")||"[]"); }catch(e){}
+  /* Se sanea AL LEER, no solo al escribir. Un nombre con comillas guardado por
+     una version anterior -o por un archivo importado antes de este arreglo- se
+     quedaria explotable para siempre: acaba dentro de onclick="fn('...')", donde
+     escapar a HTML no sirve porque el navegador decodifica las entidades antes
+     de interpretar el JS. Al limpiarlo aqui, la proxima carga lo desactiva. */
+  const limpio = {};
+  Object.keys(extra).forEach(k => {
+    const ok = NOMBRE_SEGURO(k);
+    if(!ok) return;
+    limpio[ok] = extra[k];
+    if(ok !== k){
+      /* Se arrastran sus datos al nombre limpio y se tira la clave vieja. */
+      const d = localStorage.getItem('recomp_v1_' + k);
+      if(d !== null && localStorage.getItem('recomp_v1_' + ok) === null)
+        localStorage.setItem('recomp_v1_' + ok, d);
+      localStorage.removeItem('recomp_v1_' + k);
+    }
+  });
+  if(JSON.stringify(limpio) !== JSON.stringify(extra)){
+    extra = limpio;
+    try{ localStorage.setItem("atlas_profiles", JSON.stringify(extra)); }catch(e){}
+  }
   PROFILES = {...DEFAULT_PROFILES, ...extra};
   del.forEach(n=>delete PROFILES[n]);          // usuarios borrados por el usuario
   /* Rescate: si hay datos de un usuario pero su nombre no está en la lista, se
