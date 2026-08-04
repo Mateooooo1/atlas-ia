@@ -19,16 +19,23 @@
      y WebLLM ya tiene su propia cache.
 */
 
-/* ⚠ SUBE ESTE NUMERO EN CADA DESPLIEGUE QUE TOQUE index.html, el manifiesto o
-   los iconos. No es decorativo: `activate` borra las caches cuyo nombre no sea
-   este, asi que mientras no cambie el movil sigue sirviendo la copia vieja y da
-   igual lo que haya en el servidor.
-   Se quedo en 'atlas-v1' durante ocho despliegues y el sintoma fue justo ese:
-   iconos y textos antiguos en un movil ya instalado. */
-const VERSION = 'atlas-v2-20260803';
+/* NO SE TOCA A MANO. Lo pone `sellar_sw.py` a partir del hash de index.html,
+   el manifiesto y los iconos: si cambia cualquiera, cambia la version y activate
+   tira la cache vieja.
+   Antes habia aqui un aviso en mayusculas pidiendo subirlo en cada despliegue.
+   Se ignoro seis veces seguidas -por quien lo escribio- y el sintoma siempre fue
+   el mismo: el movil mostrando la version anterior. Un recordatorio que falla
+   seis veces no es un recordatorio, es un paso que tiene que hacer la maquina. */
+const VERSION = 'atlas-c3f396123a5f';
 /* Lo que espera a la red TENIENDO copia guardada. Corto a proposito: pasado esto
    abrir la app importa mas que abrir la ultima version. */
-const RED_MS  = 2500;
+/* 2500 ms era demasiado poco. El index.html son 1,3 MB comprimidos: en datos
+   moviles a 500 KB/s tarda ~2,6 s, o sea que el limite se agotaba SIEMPRE y el
+   telefono servia la copia vieja aunque tuviera cobertura de sobra. Sintoma
+   exacto que aparecio: "en el movil sigue igual" tras varios despliegues.
+   8 s no penaliza al que esta sin red -ahi fetch falla solo, no espera- y le da
+   margen al que tiene una conexion normal para llevarse lo ultimo. */
+const RED_MS  = 8000;
 const NUCLEO  = [
   './',
   './index.html',
