@@ -950,6 +950,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
   font-weight:700;cursor:pointer}
 .llmbar.on .llmsw{background:var(--acc-ghost);border-color:var(--acc-line);color:var(--accent)}
 .llmbar.cargando .llmsw{border-color:var(--warn-line);color:var(--warn)}
+.llmest{font-size:var(--t-sm);color:var(--muted);padding:var(--s2) 0;display:inline-block}
+.llmest.on{color:var(--accent)}
+.llmbar:empty{display:none;margin:0;padding:0}
 .llmbar select{flex:1;min-width:0;min-height:var(--tap);background:var(--card);border:1px solid var(--line);
   color:var(--muted);border-radius:var(--r1);padding:0 var(--s2);font-size:var(--t-input);margin:0}
 .lbar{height:6px;border-radius:var(--rp);background:var(--bg2);overflow:hidden;margin-top:var(--s2)}
@@ -12030,10 +12033,14 @@ function botPie(mostrados, total){
      §6/§7 y punto. Así no puede inventarse una respuesta cuando no hay evidencia.
    ============================================================================ */
 
+/* UN SOLO MODELO, y a proposito. Habia tres a elegir y era una decision que el
+   usuario no puede tomar con criterio: los otros dos (1,6 GB y 2,5 GB) no caben
+   en un movil normal -el de 3B supera incluso el maxStorageBufferBindingSize de
+   2 GB de una GPU de escritorio- y el modelo solo REDACTA: los ejercicios, los
+   1.022 articulos y el analisis de tus datos salen igual sin el. Duplicar la
+   descarga para cambiar como suena una frase no compensa. */
 const BOT_MODELOS=[
-  {id:'Llama-3.2-1B-Instruct-q4f16_1-MLC', n:'Llama 3.2 · 1B',  mb:879,  nota:'el de serie: ligero y rápido'},
-  {id:'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', n:'Qwen 2.5 · 1.5B', mb:1630, nota:'algo mejor en español'},
-  {id:'Qwen2.5-3B-Instruct-q4f16_1-MLC',   n:'Qwen 2.5 · 3B',   mb:2505, nota:'el que mejor razona, pide más máquina'},
+  {id:'Llama-3.2-1B-Instruct-q4f16_1-MLC', n:'Llama 3.2 · 1B', mb:879, nota:'ligero y rapido'},
 ];
 let _llm=null, _llmEstado='off', _llmMsg=null;
 let _llmModelo=localStorage.getItem('atlas_llm_modelo')||BOT_MODELOS[0].id;
@@ -12162,6 +12169,7 @@ async function llmEncender(){
       `<span class="bhint">Sigo respondiendo con el buscador de los 1.022 art\u00edculos, que no `+
       `necesita GPU ni descargar nada. En m\u00f3viles el Modo IA falla a menudo: es normal.</span>`);
     _llmEstado='off'; llmPintaBarra();
+    localStorage.setItem('atlas_llm_no','1');   // no se vuelve a intentar solo
     return false;
   }
   const info=llmModeloInfo();
@@ -12291,25 +12299,44 @@ async function llmCambiaModelo(id){
 }
 /* Enciende SOLO si ya está en la caché (o si lo dejaste encendido la última vez).
    Nunca dispara una descarga de 900 MB por sorpresa: eso siempre lo pides tú. */
+/* Se enciende SOLO la primera vez que abres el chat, y ya nunca mas se pregunta.
+   Antes habia que encontrarlo y pulsarlo. Se pide permiso una unica vez porque
+   son 0,9 GB y en datos moviles eso es dinero de verdad; a partir de ahi queda
+   guardado y arranca en segundos sin decir nada.
+   Si el movil no puede -sin WebGPU, sin sitio, sin red- se marca para no volver
+   a insistir y el chat sigue funcionando con el buscador. Que no lo tengas no es
+   un fallo que haya que anunciar en cada apertura. */
 async function llmAutoEncender(){
+  if(localStorage.getItem('atlas_llm_no')==='1') return;      // ya se probo y no puede
   if(localStorage.getItem('atlas_llm')==='1'){ llmEncender(); return; }
   try{
     const webllm=await import(LLM_URL);
-    if(await webllm.hasModelInCache(_llmModelo)) llmEncender();
-  }catch(e){}                                   // sin red o dentro del artifact: se queda el buscador
+    if(await webllm.hasModelInCache(_llmModelo)){ llmEncender(); return; }
+  }catch(e){ return; }                          // sin red: el buscador basta
+  if(localStorage.getItem('atlas_llm_pedido')==='1') return;  // ya dijiste que no
+  localStorage.setItem('atlas_llm_pedido','1');
+  const info=llmModeloInfo();
+  const ok=await askConfirm(
+    `El asistente puede redactar sus respuestas en vez de listarte fichas de artículos.<br><br>`+
+    `Para eso descarga <b>${(info.mb/1024).toFixed(1)} GB</b> una sola vez y después funciona `+
+    `sin conexión. <b>Mejor con wifi.</b><br><br>`+
+    `Diciendo que no, el asistente sigue respondiendo igual con los 1.022 artículos: `+
+    `solo cambia cómo está redactado.`,
+    'Descargar con wifi', 'Asistente completo');
+  if(ok) llmEncender(); else llmPintaBarra();
 }
+/* La barra ya no es un panel de mandos. Tenia un interruptor "Modo IA ·
+   apagado/activo" y un desplegable de modelos: dos decisiones que el usuario no
+   puede tomar con criterio, y que ademas hacian parecer que algo iba mal cuando
+   ponia "apagado". Ahora solo informa MIENTRAS pasa algo y desaparece el resto
+   del tiempo. Si el movil no puede con el modelo no se dice nada: el chat
+   responde igual con el buscador de los 1.022 articulos. */
 function llmPintaBarra(){
   const el=$("#llmBar"); if(!el) return;
-  const info=llmModeloInfo();
-  const est={off:'apagado', cargando:'cargando…', on:'activo'}[_llmEstado];
   el.className = 'llmbar '+_llmEstado;
-  el.innerHTML =
-    `<button class="llmsw" onclick="llmToggle()" ${_llmEstado==='cargando'?'disabled':''}>`+
-      `${_llmEstado==='on'?'':'○'} Modo IA · ${est}</button>`+
-    `<select onchange="llmCambiaModelo(this.value)" title="Modelo local">`+
-      BOT_MODELOS.map(m=>`<option value="${m.id}" ${m.id===_llmModelo?'selected':''}>`+
-        `${m.n} · ${(m.mb/1024).toFixed(1)} GB</option>`).join('')+
-    `</select>`;
+  if(_llmEstado==='cargando')  el.innerHTML = `<span class="llmest">Preparando el asistente…</span>`;
+  else if(_llmEstado==='on')   el.innerHTML = `<span class="llmest on">● Asistente completo</span>`;
+  else                         el.innerHTML = '';
 }
 
 /* Monta el contexto que ve el modelo: los artículos que encontró el buscador.
