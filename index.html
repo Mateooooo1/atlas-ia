@@ -354,6 +354,18 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .addex-fila .an b{display:block;font-size:var(--t-sm)}
 .addex-fila .an span{color:var(--muted);font-size:var(--t-xs)}
 .addex-fila .mas{flex:0 0 auto;color:var(--accent);font-weight:700;font-size:18px}
+/* Volumen semanal por musculo, en la Guia. La barra va sobre 24 series y no sobre
+   el maximo del usuario: con un maximo movil, 8 series parecian muchas si nadie
+   pasaba de 9, y la gracia es ver donde cae cada musculo respecto a la ventana. */
+.volrow{display:grid;grid-template-columns:88px 1fr 76px;gap:var(--s3);
+  align-items:center;padding:var(--s2) 0}
+.volrow .vn{font-size:var(--t-sm);color:var(--n-300)}
+.volrow .vv{font-size:var(--t-sm);font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.volbar{position:relative;height:8px;background:var(--n-800);border-radius:var(--rp);overflow:hidden}
+.volbar >i{display:block;height:100%;border-radius:var(--rp)}
+/* Las dos rayitas marcan 10 y 20 series: sin ellas la barra es un adorno y no
+   se ve si te quedas corto o te pasas. */
+.volbar >u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--n-600);opacity:.85}
 .reco-l{margin-bottom:7px}
 .reco-l .btn{margin-left:6px;vertical-align:middle}
 .refs{font-size:var(--t-xs);color:var(--muted)}
@@ -1289,6 +1301,13 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
     </div>
 
     <div data-gt="musc" style="display:none">
+      <!-- El volumen planificado solo se veía por partes: el mapa del Cuerpo cuenta
+           la fatiga de lo YA REGISTRADO, que es otra cosa. Aquí va lo que el plan
+           le manda a cada músculo cada semana, que es lo que se puede ajustar. -->
+      <div class="panel">
+        <h3>Volumen semanal de tu plan</h3>
+        <div id="volSemanal"></div>
+      </div>
       <div class="panel">
         <h3 data-i18n="h_catmus">Todos los ejercicios por músculo</h3>
         <div id="catMusc"></div>
@@ -4877,7 +4896,64 @@ function renderLangPicker(){
    Hasta ahora los ejercicios solo se veían dentro de la rutina del día. Aquí está
    el catálogo entero ordenado por músculo, marcando cuáles llevas hoy en tu plan. */
 const EQ_ES={barra:'Barra',mancuerna:'Mancuerna',maquina:'Máquina',polea:'Polea',corporal:'Peso corporal'};
+/* =====  VOLUMEN SEMANAL POR MÚSCULO  =====
+   Lo que TU plan le manda a cada músculo cada semana. No confundir con el mapa
+   del Cuerpo, que pinta la fatiga de las series ya REGISTRADAS: esto es lo
+   planificado, que es lo que se puede tocar antes de entrenar.
+   El conteo sale de planVolume, el mismo que usan el generador y el bot, así que
+   las tres pantallas dicen el mismo número — media serie por músculo secundario
+   incluida, que es el trabajo indirecto que casi nadie cuenta. */
+const VOL_MIN=10, VOL_MAX=20, VOL_ESCALA=24;
+function volColor(v){
+  if(v<=0)       return 'var(--n-700)';
+  if(v<VOL_MIN)  return 'var(--accent2)';    // corto
+  if(v<=VOL_MAX) return 'var(--accent)';     // dentro de la ventana
+  return 'var(--warn)';                      // pasado
+}
+function renderVolSemanal(){
+  const box=$("#volSemanal"); if(!box) return;
+  if(!DB.profile || !DAYS.length){
+    box.innerHTML=`<div class="empty">Haz el test y aquí verás cuántas series por semana recibe cada músculo.</div>`;
+    return;
+  }
+  const v=planVolume(DAYS);
+  const orden=['pecho','espalda','hombro','biceps','triceps','cuadriceps','isquios','gluteo','gemelo','core'];
+  const filas=orden.map(m=>({m, v:+(v[m]||0).toFixed(1)})).sort((a,b)=>b.v-a.v);
+  /* OJO con el total: sumar la columna da MÁS que las series que haces de verdad,
+     porque un press suma 4 al pecho y 2 al tríceps. Las series reales se cuentan
+     una vez por ejercicio; lo otro es reparto de esfuerzo, no trabajo extra. */
+  const reales=DAYS.reduce((s,d)=>s+d.ex.reduce((t,e)=>t+(e.cardio?0:(e.sets||3)),0),0);
+  const cortos=filas.filter(r=>r.v>0 && r.v<VOL_MIN).map(r=>MUSCLE_ES[r.m]);
+  const pasados=filas.filter(r=>r.v>VOL_MAX).map(r=>MUSCLE_ES[r.m]);
+  const ceros=filas.filter(r=>r.v<=0).map(r=>MUSCLE_ES[r.m]);
+  const marca = x => `<u style="left:calc(${Math.min(100,x/VOL_ESCALA*100)}% - 1px)"></u>`;
+
+  const cuerpo=filas.map(r=>`<div class="volrow">
+      <span class="vn">${MUSCLE_ES[r.m]}</span>
+      <span class="volbar"><i style="width:${Math.min(100, r.v/VOL_ESCALA*100).toFixed(1)}%;background:${volColor(r.v)}"></i>${marca(VOL_MIN)}${marca(VOL_MAX)}</span>
+      <span class="vv" style="color:${volColor(r.v)}">${r.v} ser.</span>
+    </div>`).join('');
+
+  const avisos=[];
+  if(ceros.length)   avisos.push(`<b style="color:var(--muted)">Sin trabajo:</b> ${ceros.join(', ')}.`);
+  if(cortos.length)  avisos.push(`<b style="color:var(--accent2)">Por debajo de ${VOL_MIN}:</b> ${cortos.join(', ')}. Súbeles una serie con «+ Añadir ejercicio» en Hoy.`);
+  if(pasados.length) avisos.push(`<b style="color:var(--warn)">Por encima de ${VOL_MAX}:</b> ${pasados.join(', ')}. Más volumen no da más músculo y sí más fatiga.`);
+  if(!avisos.length) avisos.push(`<b style="color:var(--accent)">Todo dentro de la ventana ${VOL_MIN}–${VOL_MAX}.</b> Así se queda.`);
+
+  box.innerHTML=`
+    <p style="font-size:12px;color:var(--muted);margin:0 0 10px">
+      Haces <b>${reales} series</b> a la semana repartidas en <b>${DAYS.length} días</b>. Las dos rayas de cada
+      barra marcan las ${VOL_MIN} y las ${VOL_MAX}: es la ventana donde la hipertrofia responde al volumen.
+      Cada músculo suma <b>media serie</b> cuando trabaja de apoyo, así que las barras suman más que las series
+      que haces — es el trabajo indirecto, justo lo que nadie cuenta y por lo que la gente se sobreentrena.</p>
+    ${cuerpo}
+    <div class="note" style="margin-top:12px">${avisos.join('<br>')}</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+      Es el volumen del plan base. En semana de descarga baja solo, y en la de pico sube.
+      La fatiga de lo que YA has registrado está en la pestaña Cuerpo.</div>`;
+}
 function renderCatalogoMusc(){
+  renderVolSemanal();                       //  va en la misma pestaña, arriba
   const box=$("#catMusc"); if(!box) return;
   const pool=exercisePool();
   const enPlan=new Set(DAYS.flatMap(d=>d.ex.map(e=>e.id)));
@@ -10865,7 +10941,7 @@ function addExerciseToDay(id){
   save(); rebuildPlanIndexes(); buildExerciseMedia(); buildProgSel();
   /* Todo lo que depende del plan se refresca aquí: si no, el mapa de fatiga y la
      gráfica seguían enseñando el volumen de antes hasta cambiar de pestaña. */
-  renderDay(); renderProg(); renderOverview(); renderHeat(); renderPlanInfo();
+  renderDay(); renderProg(); renderOverview(); renderHeat(); renderPlanInfo(); renderVolSemanal();
   const m=(src.mus||[])[0], v=planVolume(DAYS);
   toast(`${src.n} en ${plan[di].title} · ${MUSCLE_ES[m]||m}: ${v[m]||0} series/semana`);
   renderAddEx();
@@ -13089,7 +13165,7 @@ function botAplicado(msg){
   /* Faltaban estas dos: tocar el plan por el chat dejaba el mapa de fatiga del
      Cuerpo y el resumen con el volumen de ANTES hasta que cambiabas de pestaña.
      Vale para cualquier cambio del bot, no solo para añadir. */
-  renderHeat(); renderOverview();
+  renderHeat(); renderOverview(); renderVolSemanal();
   toast("Plan actualizado");
   return msg;
 }
