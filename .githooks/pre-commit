@@ -1,0 +1,31 @@
+#!/bin/sh
+# Dos comprobaciones antes de dejar commitear. Las dos han fallado de verdad en
+# este proyecto, no son precaucion teorica:
+#
+#   1 · El JS no compila. La app entera vive en un <script> inline de 2,3 MB; un
+#       parentesis suelto la deja en blanco y en GitHub Pages no hay build que
+#       avise. Ya paso con un parche del dia de descanso.
+#   2 · Las copias del fichero se quedan atras. Entrenamiento.html estuvo una
+#       semana desfasado Y crasheaba al cargar, y nadie lo vio porque todos
+#       abriamos el generado.
+#
+# Instalar (una vez):   git config core.hooksPath .githooks
+# Saltarselo aposta:    git commit --no-verify
+
+set -e
+RAIZ="$(git rev-parse --show-toplevel)"
+PADRE="$(dirname "$RAIZ")"
+
+echo "[pre-commit] comprobando el JS de index.html..."
+python "$PADRE/comprobar_js.py" || {
+  echo "[pre-commit] ABORTADO: index.html no compila."
+  exit 1
+}
+
+echo "[pre-commit] comprobando que las copias cuadren..."
+python "$PADRE/sincronizar.py" --check || {
+  echo "[pre-commit] ABORTADO: hay copias desfasadas (arriba dice cuales)."
+  exit 1
+}
+
+echo "[pre-commit] todo en orden."

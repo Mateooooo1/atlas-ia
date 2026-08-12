@@ -366,6 +366,39 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 /* Las dos rayitas marcan 10 y 20 series: sin ellas la barra es un adorno y no
    se ve si te quedas corto o te pasas. */
 .volbar >u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--n-600);opacity:.85}
+/* Cierre de sesion. Solo sale con el dia entero marcado, por eso puede permitirse
+   el borde de acento: no compite con nada, es lo ultimo que pasa. */
+.cierre{background:var(--card2);border:1px solid var(--accent);border-radius:var(--r2);
+  padding:var(--s4);margin-bottom:var(--s4)}
+.cierre h4{margin:0 0 4px;font-size:var(--t-md)}
+.cierre p{margin:0 0 10px;font-size:var(--t-xs);color:var(--muted);line-height:1.5}
+.cierre .opts{display:flex;gap:var(--s2)}
+.cierre .opts button{flex:1;min-height:var(--tap);border:1px solid var(--line);
+  background:var(--bg2);color:var(--txt);border-radius:var(--r1);cursor:pointer;
+  font-family:inherit;font-size:var(--t-xs);font-weight:700;padding:8px 4px;line-height:1.3}
+.cierre .opts button b{display:block}
+.cierre .opts button i{display:block;font-weight:400;font-style:normal;
+  color:var(--muted);font-size:10.5px;margin-top:2px}
+.cierre .opts button:hover{border-color:var(--accent);color:var(--accent)}
+.cierre .efecto{font-size:var(--t-xs);line-height:1.5;margin-top:2px}
+/* La chapa de series, tocable. El "?" en vez de subrayado: la chapa ya va en
+   color de acento y subrayarla la volvia ilegible. */
+.tag.acc.pq{cursor:pointer;position:relative}
+.tag.acc.pq em{font-style:normal;opacity:.6;margin-left:3px;font-weight:700}
+.tag.acc.pq:hover em{opacity:1}
+/* La chapa mide 25 px de alto y va DENTRO de otra zona tocable (la ficha se
+   despliega al tocarla), asi que fallar el toque no es que no pase nada: es que
+   pasa otra cosa. Este pseudoelemento estira el area sensible hasta ~47 px sin
+   mover un pixel del diseno. */
+.tag.acc.pq::after{content:'';position:absolute;inset:-11px -8px}
+.pq-rec{background:var(--bg2);border-radius:var(--r1);padding:9px 12px;margin:0 0 10px;
+  font-size:var(--t-sm);color:var(--accent);font-variant-numeric:tabular-nums}
+.pq-lista{margin:0;padding-left:18px}
+.pq-lista li{margin-bottom:7px;line-height:1.5}
+.pq-h{font-size:var(--t-xs);font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.5px;margin:14px 0 8px}
+.pq-pie{font-size:11px;color:var(--muted);line-height:1.5;margin-top:10px;
+  padding-top:9px;border-top:1px solid var(--line)}
 .reco-l{margin-bottom:7px}
 .reco-l .btn{margin-left:6px;vertical-align:middle}
 .refs{font-size:var(--t-xs);color:var(--muted)}
@@ -2370,7 +2403,7 @@ function renderDay(){
      un JSON.parse del blob de la pareja por cada ejercicio de la sesión. */
   const DUO = duoHoy(d, curIdx);
 
-  $("#exList").innerHTML = d.ex.map(e=>{
+  $("#exList").innerHTML = tarjetaCierre() + d.ex.map(e=>{
     const log = (DB.logs[logKey(e.id)]||[]);
     const last = log[log.length-1];
     const done = !!doneMap[doneKey(d,e.id)];
@@ -2434,7 +2467,11 @@ function renderDay(){
         <div class="ex-meta" onclick="toggleEx('${e.id}')">
           <h3>${e.n}</h3>
           <div class="tags">
-            <span class="tag acc"><b>${esr}</b></span>
+            <!-- La chapa de las series es tocable: es justo el numero por el que
+                 uno se pregunta "y esto de donde sale". stopPropagation porque
+                 el contenedor entero despliega la ficha. -->
+            <span class="tag acc pq" onclick="event.stopPropagation();porQueEsto('${e.id}')"
+                  role="button" tabindex="0" title="¿Por qué estas series?"><b>${esr}</b><em>?</em></span>
             ${eri&&eri!=='—'?`<span class="tag">${e.cardio?'Esfuerzo':T('rir','RIR')} <b>${eri}</b></span>`:``}
             ${e.rest&&e.rest!=='—'?`<span class="tag"> <b>${e.rest}</b></span>`:``}
             ${e.tempo&&e.tempo!=='—'?`<span class="tag">${e.cardio?'modo':T('tempo','tempo')} <b>${e.tempo}</b></span>`:``}
@@ -2539,6 +2576,126 @@ function celebrate(){
   toast("¡"+DAYS[curIdx].short+" completado, "+PROFILE+"!");
   try{ if(navigator.vibrate) navigator.vibrate([90,60,90]); }catch(e){}
   autoBackup('sesión ' + DAYS[curIdx].short);        //  copia automática al cerrar la sesión
+  /* Y se sube a la tarjeta de cierre, que es lo único que queda por hacer. Sin
+     esto aparece arriba del todo y con el día entero desplegado no la ves. */
+  setTimeout(()=>{ const c=document.querySelector('.cierre');
+    if(c) c.scrollIntoView({block:'center', behavior:'smooth'}); }, 260);
+}
+
+/* ==========  CERRAR LA SESIÓN  ==========
+   La app te decía qué hacer y al terminar no pasaba nada. Un toque al acabar
+   —fácil / justo / durísimo— es el único dato que no sale de los kilos: la carga
+   interna, que es justo lo que los kilos no ven.
+
+   LA REGLA ES CONSERVADORA A PROPÓSITO:
+   · Hacen falta DOS sesiones seguidas del MISMO día diciendo lo mismo. Con una
+     sola no se toca nada: un mal día lo tiene cualquiera y no es señal de nada.
+   · Se mueve UNA serie y en UN solo ejercicio, no en todos los del día. Sumar
+     una a los cuatro compuestos de un día son +4 series semanales de golpe.
+   · El acumulado por día está topado a ±2 para que no se realimente solo: si no,
+     tres «fácil» seguidos te ponen en 25 series sin que nadie lo haya decidido.
+   · Y respeta la ventana 10–20: antes que salirse, no cambia y lo dice. */
+const RPE_OPC=[['facil','Fácil','Podía más'],
+               ['justo','Justo','En su punto'],
+               ['duro','Durísimo','Me costó acabar']];
+const RPE_TOPE=2;
+
+function ajusteRPE(diaId){
+  const h=DB.rpe||{};
+  const ult=Object.keys(h).filter(f=>h[f].dia===diaId).sort().slice(-2).map(f=>h[f].v);
+  if(ult.length<2) return 0;
+  if(ult.every(v=>v==='duro'))  return -1;
+  if(ult.every(v=>v==='facil')) return +1;
+  return 0;
+}
+
+/* Devuelve QUÉ pasó, para poder contárselo al usuario en vez de cambiarle el
+   plan por detrás. null = no tocaba mover nada todavía. */
+function aplicaRPE(di){
+  const dia=DAYS[di]; if(!dia || !dia.ex.length) return null;
+  const delta=ajusteRPE(dia.id);
+  if(!delta) return null;
+
+  DB.rpeAjuste=DB.rpeAjuste||{};
+  const acum=DB.rpeAjuste[dia.id]||0;
+  if(Math.abs(acum+delta)>RPE_TOPE) return {tope:true, delta, acum};
+
+  /* Los compuestos primero: son los que aguantan el volumen. Si el día no tiene
+     ninguno (un día de aislamiento), vale cualquiera. */
+  const todos=dia.ex.map((e,ei)=>({e,ei})).filter(x=>!x.e.cardio);
+  const comp=todos.filter(x=>(EXTAGS[x.e.id]||{}).comp);
+  const lista=(comp.length?comp:todos).slice().sort((a,b)=>(a.e.sets||3)-(b.e.sets||3));
+  if(!lista.length) return null;
+  const el = delta>0 ? lista[0] : lista[lista.length-1];   // sube al que menos tiene, baja al que más
+  const s=el.e.sets||3, ns=Math.max(2, Math.min(8, s+delta));
+  /* Tope duro de 2–8 series por ejercicio. Se devuelve marcado y NO null: con
+     null se caía en el mensaje de "la próxima vez muevo una serie", que era
+     mentira porque nunca iba a poder moverla. */
+  if(ns===s) return {clamp:true, ex:el.e.n, s, delta};
+
+  const m=(MUSCLES[el.e.id]||[])[0];
+  const antes=+((planVolume(DAYS)||{})[m]||0).toFixed(1), ahora=+(antes+delta).toFixed(1);
+  if(delta>0 && ahora>VOL_MAX) return {ventana:'arriba', mus:m, antes};
+  if(delta<0 && ahora<VOL_MIN) return {ventana:'abajo',  mus:m, antes};
+
+  el.e.sets=ns;
+  el.e.sr=String(el.e.sr).replace(/^\d+/, ns);
+  DB.rpeAjuste[dia.id]=acum+delta;
+  return {ex:el.e.n, de:s, a:ns, mus:m, antes, ahora, delta};
+}
+
+function responderRPE(v){
+  ensureEditablePlan();                       // no tocar el plan por defecto de todos
+  const dia=DAYS[curIdx]; if(!dia) return;
+  DB.rpe=DB.rpe||{};
+  DB.rpe[today()]={dia:dia.id, v};
+  const ef=aplicaRPE(curIdx);
+  if(ef) DB.rpe[today()].efecto=ef;
+  DB.plan=DAYS;
+  save(); rebuildPlanIndexes();
+  renderDay(); renderProg(); renderOverview(); renderHeat();
+  renderPlanInfo(); renderVolSemanal();
+  toast(ef && ef.ex ? `${ef.ex}: ${ef.de} → ${ef.a} series` : 'Anotado');
+}
+
+function textoEfecto(ef, v){
+  if(!ef){
+    return v==='justo'
+      ? `Anotado. Mientras te siga saliendo <b>justo</b>, el plan se queda como está.`
+      : `Anotado. Si la próxima vez vuelve a salirte <b>${v==='facil'?'fácil':'durísimo'}</b>, muevo una serie.`;
+  }
+  if(ef.tope)
+    return `Anotado, pero este día ya lleva <b>${ef.acum>0?'+':''}${ef.acum} series</b> movidas y ahí me paro.
+            Si sigue sin cuadrar, rehaz el test: el problema no es una serie.`;
+  if(ef.clamp)
+    return ef.delta>0
+      ? `Anotado. <b>${TXT_SEGURO(ef.ex)}</b> ya está en ${ef.s} series, que es el techo por ejercicio.
+         A partir de aquí se sube <b>carga</b>, no series.`
+      : `Anotado. <b>${TXT_SEGURO(ef.ex)}</b> ya está en ${ef.s} series y no bajo de ahí.
+         Si te sigue costando, baja el <b>peso</b> o descansa más entre series.`;
+  if(ef.ventana==='arriba')
+    return `Anotado. Tocaría subir una serie, pero <b>${MUSCLE_ES[ef.mus]}</b> ya va por ${ef.antes} a la semana
+            y se saldría del tope de ${VOL_MAX}. Más volumen ahí no da más músculo. Sube la <b>carga</b> en su lugar.`;
+  if(ef.ventana==='abajo')
+    return `Anotado. Tocaría bajar una serie, pero <b>${MUSCLE_ES[ef.mus]}</b> se quedaría por debajo de ${VOL_MIN}
+            y ahí ya no crece. Baja el <b>peso</b> un 5–10 % y mantén las series.`;
+  return `${ef.delta>0?'Le subo':'Le bajo'} una serie a <b>${TXT_SEGURO(ef.ex)}</b>: de ${ef.de} a <b>${ef.a}</b>.
+          ${MUSCLE_ES[ef.mus]} pasa de ${ef.antes} a <b>${ef.ahora}</b> series a la semana.`;
+}
+
+function tarjetaCierre(){
+  const dia=DAYS[curIdx];
+  if(!dia || !dia.ex.length || dayDoneCount()<dia.ex.length) return '';
+  const r=(DB.rpe||{})[today()];
+  if(r && r.dia===dia.id)
+    return `<div class="cierre">
+      <h4>Sesión cerrada</h4>
+      <div class="efecto">${textoEfecto(r.efecto, r.v)}</div></div>`;
+  return `<div class="cierre">
+    <h4>${TXT_SEGURO(dia.short)} terminado. ¿Cómo fue?</h4>
+    <p>Los kilos no dicen cuánto te costó. Esto sí, y es lo que ajusta la semana que viene.</p>
+    <div class="opts">${RPE_OPC.map(([k,t,sub])=>
+      `<button onclick="responderRPE('${k}')"><b>${t}</b><i>${sub}</i></button>`).join('')}</div></div>`;
 }
 function toggleDone(id){
   const t=today(); DB.done[t]=DB.done[t]||{};
@@ -4982,6 +5139,77 @@ function renderCatalogoMusc(){
   box.innerHTML=`<p style="font-size:12px;color:var(--muted);margin:0 0 10px">
       <b>${total} ejercicios</b> ordenados por músculo, compuestos primero. Los marcados están en tu rutina de esta semana.</p>${bloques}`;
 }
+/* ==========  POR QUÉ ESTAS SERIES  ==========
+   Los 1.022 estudios vivían en su pestaña y el plan en la suya: veías «4 × 6–12»
+   y no había forma de saber de dónde salía sin irte a buscar. Esto lo cuenta ahí
+   mismo, en la ficha del ejercicio, y con el DOI al lado.
+
+   Los motivos NO se escriben a mano: se derivan de las mismas ramas que ejecuta
+   prescribe(), así que si mañana cambia la receta, cambia la explicación. Un
+   texto fijo aquí se quedaría mintiendo a la primera. */
+const PQ_META={strength:'ganar fuerza', fat:'perder grasa',
+               muscle:'ganar músculo', recomp:'recomposición'};
+const PQ_BUSCA={strength:'fuerza carga alta repeticiones bajas descanso',
+                fat:'deficit calorico mantener masa muscular entrenamiento',
+                muscle:'volumen series semanales hipertrofia',
+                recomp:'volumen series semanales hipertrofia'};
+
+function porQueEsto(exId){
+  const dia=DAYS[curIdx], e=dia && dia.ex.find(x=>x.id===exId);
+  if(!e){ toast('No encuentro ese ejercicio'); return; }
+  const prof=DB.profile||{}, comp=!!(EXTAGS[e.id]||{}).comp;
+  const wk=currentWeek(), fase=weekPhase(wk);
+  const base=prescribe(prof.goal, comp, prof.level, +prof.age||null);
+  const m=(MUSCLES[e.id]||[])[0];
+  const nivel={beg:'principiante', int:'intermedio', adv:'avanzado'}[prof.level]||'';
+
+  /* Las cifras se leen de la FICHA (e.sr, e.rir, e.rest), no de lo que devuelve
+     prescribe ahora mismo. Si el perfil cambió de objetivo sin rehacer el plan,
+     los dos numeros no coinciden y la explicacion contradecia a la chapa que el
+     usuario tenia delante. prescribe solo se usa para saber QUE reglas aplican. */
+  const reps=(String(e.sr).split(/×|x/)[1]||base.reps).trim();
+  const por=[];
+  por.push(`Tu objetivo es <b>${PQ_META[prof.goal]||prof.goal}</b>, y para eso el rango es
+            <b>${TXT_SEGURO(reps)} repeticiones</b> dejando <b>${TXT_SEGURO(e.rir)}</b> en recámara.`);
+  por.push(comp
+    ? `Es un <b>ejercicio compuesto</b>: mueve mucha masa, así que aguanta más series y pide
+       más descanso (<b>${TXT_SEGURO(e.rest)}</b>).`
+    : `Es un <b>aislamiento</b>: menos series y descansos más cortos (<b>${TXT_SEGURO(e.rest)}</b>),
+       porque la fatiga que genera es local.`);
+  if(prof.level==='beg') por.push(`Por ser <b>principiante</b> te quito una serie: se progresa igual y se recupera mejor.`);
+  if(prof.level==='adv') por.push(`Por ser <b>avanzado</b> te sumo una serie: hace falta más estímulo para mover la aguja.`);
+  const ed=+prof.age||0;
+  if(ed && ed<16)  por.push(`Con <b>${ed} años</b> se evitan las series de 1–5 repeticiones y se deja más margen al fallo.`);
+  if(ed && ed>=65) por.push(`A partir de <b>65</b> se recupera peor: repeticiones más altas, más margen y descansos largos.`);
+  if(fase.tipo!=='base'){
+    const cambios=[];
+    if(effSets(e,wk)!==e.sets) cambios.push(`<b>${effSets(e,wk)}</b> series y no ${e.sets}`);
+    if(String(effRir(e,wk))!==String(e.rir)) cambios.push(`RIR <b>${effRir(e,wk)}</b> y no ${e.rir}`);
+    por.push(`Y esta semana es de <b>${fase.etiqueta.toLowerCase()}</b>${cambios.length?`, por eso ves ${cambios.join(', y ')}`:''}. ${fase.nota}`);
+  }
+
+  /* Dos búsquedas: una por el ejercicio y otra por el concepto de la receta. Se
+     mezclan y se quitan los DOI repetidos, que si no sale el mismo dos veces. */
+  const vistos=new Set(), papers=[];
+  [botBuscar(e.n+' '+(MUSCLE_ES[m]||''), 2), botBuscar(PQ_BUSCA[prof.goal]||PQ_BUSCA.muscle, 3)]
+    .forEach(lista=>(lista||[]).forEach(p=>{
+      if(p && p.doi && !vistos.has(p.doi)){ vistos.add(p.doi); papers.push(p); }
+    }));
+
+  $("#infoTitle").innerHTML=`${TXT_SEGURO(e.n)}
+    <span style="font-size:12px;color:var(--muted);font-weight:600">· por qué así</span>`;
+  $("#infoBody").innerHTML=
+    `<div class="pq-rec"><b>${TXT_SEGURO(String(e.sr).replace(/^\d+/, effSets(e,wk)))}</b>
+       · RIR ${TXT_SEGURO(effRir(e,wk))} · descanso ${TXT_SEGURO(e.rest)}</div>
+     <ul class="pq-lista">${por.map(x=>`<li>${x}</li>`).join('')}</ul>`
+    + (papers.length
+        ? `<div class="pq-h">Lo que dicen los estudios</div>${botFichas(papers.slice(0,3))}`
+        : '')
+    + `<div class="pq-pie">Cada conclusión sale literal de su artículo: Atlas IA no redacta ciencia,
+        solo te enseña la que ya está dentro.</div>`;
+  $("#infoModal").classList.add("on");
+}
+
 function ormSuggFor(e){
   if(e.cardio || e.unit==='seg') return '';
   const o=effectiveOneRM(e.id); const rr=parseReps(e.sr);
@@ -13516,6 +13744,117 @@ function botSelfTest(){
   const p=botBuscar('descanso entre series',1)[0];
   ok(botFicha(p).indexOf(botEsc(p.act))>=0 && botFicha(p).indexOf(botEsc(p.cite))>=0, 'la ficha no cita literal');
 
+  /* Buscar ejercicio POR NOMBRE. Lo delicado es que las dos vías convivan: los
+     nombres tienen que resolver Y las peticiones genéricas por músculo tienen
+     que seguir devolviendo null para que caigan en la búsqueda de siempre. */
+  (function(){
+    const pool=poolCached(), n=id=>id?pool[id].n:null;
+    ok(/Hip thrust/i.test(n(botBuscaCatalogo('el jueves quiero hip thrust'))||''), 'no encuentra el hip thrust por su nombre');
+    ok(/Peso muerto rumano/i.test(n(botBuscaCatalogo('mete peso muerto rumano el lunes'))||''), 'no encuentra el peso muerto rumano');
+    ok(botBuscaCatalogo('anade un ejercicio de gluteo el viernes')===null, 'un musculo suelto no puede resolver a un ejercicio concreto');
+    ok(botBuscaCatalogo('pon un ejercicio el martes')===null, 'sin nombre no puede devolver nada');
+    /* "press banca" no puede caer en el press francés por compartir una palabra. */
+    ok(/banca/i.test(n(botBuscaCatalogo('mete press banca'))||''), 'una sola palabra en comun ya vale para acertar');
+  })();
+
+  /* Volumen: la Guía, el generador y el bot leen todos de planVolume, así que si
+     esto se desvía, las tres pantallas empiezan a decir números distintos. */
+  (function(){
+    if(!DAYS.length) return;                       // sin plan no hay nada que contar
+    const v=planVolume(DAYS);
+    ok(Object.values(v).every(x=>x>=0), 'sale volumen negativo');
+    /* La suma de las barras SUPERA a las series reales, porque el secundario
+       cuenta media. Si empatan, se ha perdido el trabajo indirecto. */
+    const reales=DAYS.reduce((s,d)=>s+d.ex.reduce((t,e)=>t+(e.cardio?0:(e.sets||3)),0),0);
+    ok(Object.values(v).reduce((a,b)=>a+b,0) >= reales, 'el trabajo indirecto ha dejado de contarse');
+    ok(volColor(0)!==volColor(15) && volColor(5)!==volColor(15) && volColor(15)!==volColor(25),
+       'las tres zonas de volumen se pintan igual');
+  })();
+
+  /* Metas: la cifra que se recomienda y la que se precarga tienen que ser la
+     misma, que antes eran dos tablas distintas y se contradecían. */
+  (function(){
+    const p={sex:'h', age:28, weight:77, height:178, bf:22, level:'int', goal:'muscle'};
+    const r=metaRecomendada(p);
+    ok(r.ganar && r.ganar.max>0 && r.ganar.max<=p.weight*0.10, 'la meta de músculo se sale del techo del 10 %');
+    ok(r.ganar.min<=r.ganar.max, 'el rango de músculo está del revés');
+    ok(r.perder && r.perder.max>=r.perder.reco, 'el tope de grasa es menor que lo recomendado');
+    ok(metaPorDefecto(p).ganar===r.ganar.max, 'lo precargado no coincide con lo recomendado');
+    ok(metaRecomendada({...p, weight:0}).ganar===undefined, 'recomienda sin saber el peso');
+    /* El principiante gana más rápido que el avanzado: si esto se invierte, el
+       modelo de ritmos está roto. */
+    ok(metaRecomendada({...p, level:'beg'}).ganar.max > metaRecomendada({...p, level:'adv'}).ganar.max,
+       'el avanzado ganaría más músculo que el principiante');
+  })();
+
+  /* Validación del test: cada fallo tiene que señalar A UN campo, que es lo que
+     permite pintarlo de rojo. Si vuelve a devolver texto suelto, esto revienta. */
+  (function(){
+    const base={weight:77, height:178, age:28, bf:22};
+    ok(validateProfile(base)===null, 'un perfil normal no pasa la validacion');
+    [[{...base, weight:0},'#onbW'], [{...base, height:0},'#onbH'],
+     [{...base, age:5},'#onbAge'], [{...base, bf:90},'#onbBf'],
+     [{...base, weight:220, height:135},'#onbW']].forEach(([p,sel])=>{
+      const e=validateProfile(p);
+      ok(e && e.sel===sel && e.msg, 'la validacion no apunta a '+sel);
+    });
+  })();
+
+  /* Cierre de sesión. Lo que hay que proteger es que NO se dispare sola: una
+     respuesta suelta no puede mover nada, y el acumulado no puede pasar de ±2.
+     Se trabaja sobre una copia de DB.rpe y se restaura al salir. */
+  (function(){
+    if(!DAYS.length) return;
+    const bakR=DB.rpe, bakA=DB.rpeAjuste;
+    const d='__test__';
+    DB.rpe={'2026-01-01':{dia:d, v:'facil'}}; DB.rpeAjuste={};
+    ok(ajusteRPE(d)===0, 'una sola respuesta ya mueve series');
+    DB.rpe['2026-01-08']={dia:d, v:'facil'};
+    ok(ajusteRPE(d)===+1, 'dos "facil" seguidos no suben nada');
+    DB.rpe={'2026-01-01':{dia:d,v:'duro'}, '2026-01-08':{dia:d,v:'duro'}};
+    ok(ajusteRPE(d)===-1, 'dos "durisimo" seguidos no bajan nada');
+    DB.rpe={'2026-01-01':{dia:d,v:'facil'}, '2026-01-08':{dia:d,v:'duro'}};
+    ok(ajusteRPE(d)===0, 'dos respuestas distintas mueven algo');
+    /* Que las tres opciones existan y estén bien formadas: la tarjeta las pinta
+       en bucle y una mal formada la deja a medias sin dar error. */
+    ok(RPE_OPC.length===3 && RPE_OPC.every(o=>o.length===3 && o[0] && o[1] && o[2]),
+       'las opciones de cierre estan mal formadas');
+    /* Cada rama tiene que decir algo distinto: si dos comparten texto, el usuario
+       no puede saber por que no le cambio el plan. */
+    const textos=[null, {tope:true,acum:2}, {clamp:true,ex:'X',s:8,delta:1},
+                  {ventana:'arriba',mus:'pecho',antes:21},
+                  {ventana:'abajo',mus:'pecho',antes:9},
+                  {ex:'X',de:4,a:5,mus:'pecho',antes:12,ahora:13,delta:1}]
+                 .map(e=>textoEfecto(e,'facil'));
+    ok(new Set(textos).size===textos.length, 'dos ramas del cierre dicen lo mismo');
+    ok(textos.every(t=>t && t.length>20), 'una rama del cierre se queda sin texto');
+    DB.rpe=bakR; DB.rpeAjuste=bakA;
+  })();
+
+  /* "Por qué estas series". Lo que se protege es que la explicación NUNCA
+     contradiga la chapa que el usuario tiene delante: las cifras se leen de la
+     ficha del ejercicio y no de lo que prescribe() devolvería ahora, porque si
+     el perfil cambió de objetivo sin rehacer el plan, los dos números difieren. */
+  (function(){
+    if(!DAYS.length || !DAYS[curIdx] || !DAYS[curIdx].ex.length) return;
+    const abierto=$("#infoModal").classList.contains('on');
+    const e=DAYS[curIdx].ex[0], bak=(DB.profile||{}).goal;
+    DB.profile=DB.profile||{};
+    DB.profile.goal = bak==='strength' ? 'muscle' : 'strength';   // a posta, distinto del plan
+    porQueEsto(e.id);
+    const rec=$("#infoBody").querySelector('.pq-rec').textContent;
+    const li1=$("#infoBody").querySelector('.pq-lista li').textContent;
+    const reps=(String(e.sr).split(/×|x/)[1]||'').trim();
+    ok(reps && li1.indexOf(reps)>=0, 'la explicacion no usa las repeticiones de la ficha');
+    ok(rec.indexOf(String(e.rest))>=0, 'la receta no muestra el descanso real');
+    ok($("#infoBody").querySelectorAll('.bpap').length>0, 'no sale ningun estudio');
+    /* Cada estudio con su DOI: es lo que separa esto de una opinion. */
+    ok([...$("#infoBody").querySelectorAll('.bpap')]
+        .every(p=>/doi\.org/.test((p.querySelector('a')||{}).href||'')), 'un estudio sale sin DOI');
+    DB.profile.goal=bak;
+    if(!abierto) closeInfo();
+  })();
+
   _botCtx.q=ctx.q; _botCtx.terms=ctx.terms;
   return 'botSelfTest OK';
 }
@@ -14404,6 +14743,34 @@ addEventListener('popstate', () => {
   _sincronizaGuardia();
 });
 
+/* ==========  LAS COMPROBACIONES CORREN SOLAS EN LOCAL  ==========
+   Habia ~190 comprobaciones escritas entre botSelfTest y atlasTest, y CERO se
+   ejecutaban: habia que acordarse de llamarlas a mano desde la consola, y nadie
+   se acuerda. Una suite que no corre no es una suite, es documentacion.
+
+   Solo en localhost: en el movil de un usuario esto no pinta nada, y ademas
+   botSelfTest toca localStorage (crea y borra un atleta de prueba) — es seguro,
+   pero no es algo que deba pasar en el telefono de nadie.
+
+   Con retraso porque el indice BM25 de los 1.022 articulos se construye la
+   primera vez que se pide, y son ~20 ms que no queremos delante del primer
+   pintado. */
+if(['localhost','127.0.0.1'].includes(location.hostname)){
+  setTimeout(()=>{
+    [['botSelfTest', botSelfTest], ['atlasTest', atlasTest]].forEach(([n, f])=>{
+      const t0=performance.now();
+      try{
+        f();
+        console.log('%c✓ '+n+'  ('+Math.round(performance.now()-t0)+' ms)', 'color:#00d29a;font-weight:700');
+      }catch(e){
+        console.error('✗ '+n+' FALLA:', e.message);
+        /* Bien visible: en la consola de un movil un console.error se pierde
+           entre los avisos del navegador. */
+        try{ toast('Comprobacion rota: '+e.message.slice(0,60)); }catch(_){}
+      }
+    });
+  }, 1500);
+}
 </script>
 
 <div id="pwaAviso" class="pwa-aviso" hidden>
