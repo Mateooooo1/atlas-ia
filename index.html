@@ -338,6 +338,24 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .note{font-size:var(--t-xs);color:var(--muted);background:var(--bg2);border-radius:var(--r2);
   padding:var(--s3);margin:var(--s2) 0;line-height:1.5}
 .note b{color:var(--n-300)}
+/* Campo con error: antes los cinco fallos del test salian como un toast que se
+   iba solo y no señalaba nada, asi que no habia forma de saber QUE campo estaba
+   mal. Ahora el borde rojo se queda hasta que se corrige. */
+.campo-mal{border-color:var(--bad) !important;box-shadow:0 0 0 2px rgba(255,90,90,.16) !important}
+.err-campo{display:flex;gap:6px;align-items:flex-start;color:var(--bad);
+  font-size:var(--t-xs);line-height:1.45;margin:4px 0 2px}
+.err-campo::before{content:"⚠";flex:0 0 auto;font-size:13px;line-height:1.25}
+/* Buscador para meter un ejercicio suelto en un dia concreto. */
+.addex-lista{max-height:46vh;overflow:auto;margin-top:8px}
+.addex-fila{display:flex;align-items:center;gap:10px;padding:9px var(--s2);
+  border-bottom:1px solid var(--line);cursor:pointer}
+.addex-fila:hover{background:var(--bg2)}
+.addex-fila .an{flex:1;min-width:0}
+.addex-fila .an b{display:block;font-size:var(--t-sm)}
+.addex-fila .an span{color:var(--muted);font-size:var(--t-xs)}
+.addex-fila .mas{flex:0 0 auto;color:var(--accent);font-weight:700;font-size:18px}
+.reco-l{margin-bottom:7px}
+.reco-l .btn{margin-left:6px;vertical-align:middle}
 .refs{font-size:var(--t-xs);color:var(--muted)}
 .refs div{padding:var(--s2) 0}
 
@@ -1388,6 +1406,21 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
   </div>
 </div>
 
+<!--  Meter un ejercicio suelto en el día que quieras. Hasta ahora esto solo se
+     podía por el chat y SOLO por músculo: pedir "hip thrust" no funcionaba. -->
+<div class="modal" id="addExModal" style="z-index:96">
+  <div class="box" style="max-width:470px;text-align:left">
+    <h3 style="margin-top:0">Añadir ejercicio</h3>
+    <label>¿En qué día lo meto?</label>
+    <select id="addExDia" onchange="renderAddEx()"></select>
+    <label style="display:block;margin-top:10px">Búscalo por nombre o por músculo</label>
+    <input id="addExQ" placeholder="hip thrust, glúteo, press…" oninput="renderAddEx()" autocomplete="off">
+    <div id="addExLista" class="addex-lista"></div>
+    <div class="note" id="addExNota" style="margin-top:8px"></div>
+    <button class="btn ghost" style="width:100%;margin-top:12px" onclick="cerrarAddEx()">Cerrar</button>
+  </div>
+</div>
+
 <!--  Modo dúo: emparejar, cuadrar ejercicios y mover días.
      Se arrastra por la cabecera y se minimiza a la burbuja de abajo. -->
 <div class="modal" id="duoModal" style="z-index:96">
@@ -2410,7 +2443,11 @@ function renderDay(){
         ${e.cardio?``:`<button class="btn ghost" style="width:100%;margin-top:8px;font-size:12.5px" onclick="swapExercise('${e.id}')">Probar otro ejercicio — toca para ir pasando</button>`}
       </div>
     </div>`;
-  }).join("");
+  }).join("")
+  /* Meter un ejercicio suelto no tenía botón en ninguna pantalla: solo se podía
+     por el chat. Va al final de la lista, que es donde se mira cuando ya has
+     repasado lo que toca hoy y echas algo en falta. */
+  + `<button class="btn ghost" style="width:100%;margin-top:12px" onclick="abrirAddEx()">+ Añadir ejercicio a un día</button>`;
   renderTestSorpresa();     //  reto sorpresa de 1RM
   renderDuoBar(DUO);        //  resumen del día con la pareja
   renderMotorAviso();       //  aviso si el plan se generó con un motor anterior
@@ -10756,6 +10793,83 @@ function swapExercise(exId, dIdx){
   save(); rebuildPlanIndexes(); buildExerciseMedia(); buildProgSel(); renderDay();
   toast(`${src.n} · ${alt.pos+1} de ${alt.lista.length}${alt.pos===0?' · vuelta al original':''}`);
 }
+
+/* =====  AÑADIR UN EJERCICIO CONCRETO A UN DÍA CONCRETO  =====
+   swapExercise cambia uno por otro del MISMO músculo; esto es lo otro: meter uno
+   nuevo donde tú digas. El catálogo ya viene filtrado por tu equipo y tus
+   lesiones, así que lo que se ve en la lista es lo que de verdad puedes hacer. */
+
+/* Los que ya están en el plan se excluyen por logKey y no por id: las variantes
+   comparten registro, y ofrecerte una que ya llevas duplicaría el volumen sin
+   que se notara en la lista del día. */
+function addExCandidatos(q){
+  const pool=poolCached(), prof=DB.profile||{};
+  const enPlan=new Set(DAYS.flatMap(d=>d.ex.map(e=>logKey(e.id))));
+  const t=botToks(q||'');
+  return Object.keys(pool).filter(id=>{
+    const e=pool[id];
+    if(e.cardio || !e.mus || !e.mus.length || enPlan.has(logKey(id))) return false;
+    if(prof.equipment==='db' && !['mancuerna','corporal'].includes((e.tag||{}).eq)) return false;
+    if(((e.tag||{}).risk||[]).some(r=>(prof.injuries||[]).includes(r))) return false;
+    if(!t.length) return true;
+    /* Se busca en el nombre Y en el músculo en español, así "glúteo" saca todos
+       los de glúteo aunque ninguno lleve la palabra en el nombre. */
+    const heno=botNorm(e.n+' '+e.mus.map(m=>MUSCLE_ES[m]||m).join(' '));
+    return t.every(w=>heno.includes(w));
+  }).sort((a,b)=>{
+    const ca=!!(EXTAGS[a]||{}).comp, cb=!!(EXTAGS[b]||{}).comp;   // compuestos primero
+    return (cb-ca) || (pool[a].n<pool[b].n?-1:1);
+  });
+}
+function abrirAddEx(dIdx){
+  if(!DB.profile || !DAYS.length){ toast("Primero haz el test para tener un plan"); return; }
+  ensureEditablePlan();
+  $("#addExDia").innerHTML=DAYS.map((d,i)=>
+    `<option value="${i}"${i===(dIdx==null?curIdx:dIdx)?' selected':''}>${TXT_SEGURO(d.title)}</option>`).join('');
+  $("#addExQ").value='';
+  $("#addExModal").classList.add("on");
+  renderAddEx();
+}
+function cerrarAddEx(){ $("#addExModal").classList.remove("on"); }
+function renderAddEx(){
+  const caja=$("#addExLista"); if(!caja) return;
+  const pool=poolCached(), vol=planVolume(DAYS);
+  const ids=addExCandidatos($("#addExQ").value);
+  $("#addExNota").innerHTML = ids.length
+    ? `Las series, reps, RIR y descanso se calculan solas con tu objetivo y tu nivel. Al añadirlo se recalculan el volumen semanal, el mapa del Cuerpo y la gráfica de Progreso.`
+    : `Nada con eso. Prueba con el músculo («glúteo», «espalda») o borra la búsqueda para ver todo lo que te queda.`;
+  caja.innerHTML=ids.slice(0,40).map(id=>{
+    const e=pool[id], m=e.mus[0], antes=vol[m]||0;
+    const pr=prescribe((DB.profile||{}).goal, !!(e.tag||{}).comp, (DB.profile||{}).level, +(DB.profile||{}).age||null);
+    const ahora=antes+pr.sets;
+    const fuera = ahora>20 ? ` · <b style="color:var(--warn)">se pasa de 20</b>` : '';
+    /* Se enseñan TODOS los músculos, no solo el primero: la búsqueda mira también
+       los secundarios, así que al escribir "glúteo" salía una bisagra de cadera
+       con la etiqueta "Isquios" y parecía un fallo. El volumen sí va sobre el
+       primario, que es como lo cuenta planVolume. */
+    const musTxt=e.mus.map(x=>MUSCLE_ES[x]||x).join(' · ');
+    return `<div class="addex-fila" onclick="addExerciseToDay('${id}')">
+      <div class="an"><b>${TXT_SEGURO(e.n)}</b>
+        <span>${musTxt} · ${pr.sets} × ${pr.reps} · ${MUSCLE_ES[m]||m} ${antes} → ${ahora} series/semana${fuera}</span></div>
+      <div class="mas">+</div></div>`;
+  }).join('');
+}
+function addExerciseToDay(id){
+  const plan=ensureEditablePlan(), pool=poolCached(), src=pool[id];
+  const di=+$("#addExDia").value;
+  if(!src || !plan[di]) return;
+  const prof=DB.profile||{}, comp=!!(src.tag||{}).comp;
+  const pr=prescribe(prof.goal, comp, prof.level, +prof.age||null);
+  plan[di].ex.push({...src, sets:pr.sets, sr:`${pr.sets} × ${pr.reps}`, rir:pr.rir,
+                    rest:pr.rest, tempo: comp?'2-0-1':'2-0-2'});
+  save(); rebuildPlanIndexes(); buildExerciseMedia(); buildProgSel();
+  /* Todo lo que depende del plan se refresca aquí: si no, el mapa de fatiga y la
+     gráfica seguían enseñando el volumen de antes hasta cambiar de pestaña. */
+  renderDay(); renderProg(); renderOverview(); renderHeat(); renderPlanInfo();
+  const m=(src.mus||[])[0], v=planVolume(DAYS);
+  toast(`${src.n} en ${plan[di].title} · ${MUSCLE_ES[m]||m}: ${v[m]||0} series/semana`);
+  renderAddEx();
+}
 /* =====================  METAS Y PLAZOS =====================
    Ritmo de ganancia de masa muscular (modelo Aragon / McDonald): depende del
    nivel de entrenamiento y del sexo. En kg de músculo por mes. */
@@ -10791,18 +10905,82 @@ function ritmoGrasaSemana(p, w, bf){
   if(bf!=null){ if(bf>32) tope=0.011; else if(bf>25) tope=0.009; else if(bf<15) tope=0.005; }
   return Math.min(porDeficit, w*tope);
 }
-/* Meta por defecto según el objetivo, para que el test venga relleno con algo sensato. */
+/* Meta por defecto según el objetivo, para que el test venga relleno con algo sensato.
+   Sale de metaRecomendada, la misma que se enseña justo encima de la casilla: antes
+   era una tabla aparte ({muscle:5, strength:4…}) y el número precargado podía no
+   coincidir con el consejo que estaba leyendo el usuario. */
 function metaPorDefecto(p){
-  const w=+p.weight||70, bf=(p.bf!=null&&+p.bf>0)?+p.bf:null;
-  const fem=p.sex==='m', diana=fem?22:13;
-  let perder=0;
-  if(bf!=null && bf>diana){
-    const magra=w*(1-bf/100);
-    perder=Math.max(0, +(w - magra/(1-diana/100)).toFixed(1));
-  }
-  const ganar = {muscle:5, strength:4, recomp:2, fat:0}[p.goal] || 2;
-  return {ganar: fem?+(ganar*0.6).toFixed(1):ganar, perder:+perder.toFixed(1)};
+  const r=metaRecomendada(p);
+  return {ganar: (p.goal==='fat'    || !r.ganar)  ? 0 : r.ganar.max,
+          perder:(p.goal==='muscle' || !r.perder) ? 0 : r.perder.reco};
 }
+/* =====  CUÁNTO ES RAZONABLE PEDIRLE AL CUERPO  =====
+   Antes el campo de la meta salía relleno con un número de tabla y sin explicar
+   nada, y la app solo protestaba DESPUÉS, cuando ya habías escrito un imposible.
+   Esto lo dice antes, y sale de los mismos ritmos que usa el resto de la app
+   (ritmoMusculoMes), no de cifras redondas: así la recomendación y el plazo que
+   se calcula debajo cuentan exactamente lo mismo. */
+function metaRecomendada(p){
+  const w=+p.weight||0, bf=(p.bf!=null&&+p.bf>0)?+p.bf:null, fem=p.sex==='m';
+  const out={};
+  if(!w) return out;
+  /* MÚSCULO: el ritmo mensual de ESTE usuario por 12 meses. El techo del 10 % del
+     peso es el mismo que ya avisa goalTimeline, para no recomendar justo lo que
+     luego se marca en naranja. */
+  const rm=ritmoMusculoMes(p);
+  if(rm>0){
+    const año=rm*12, techo=w*0.10;
+    const max=+Math.min(año, techo).toFixed(1);
+    out.ganar={ min:+Math.min(max, Math.max(0.5, año*0.7)).toFixed(1), max, mes:+rm.toFixed(2) };
+  }
+  /* GRASA: kilos hasta el % de referencia saludable, y kilos hasta el suelo por
+     debajo del cual goalTimeline ya te dice que estás bajando de más. Se calcula
+     sobre la masa magra, que es lo que NO quieres perder. */
+  if(bf!=null){
+    const diana=fem?22:13, suelo=fem?14:7, magra=w*(1-bf/100);
+    const hasta = v => Math.max(0, +(w - magra/(1-v/100)).toFixed(1));
+    out.perder={ reco:hasta(diana), max:hasta(suelo), diana, suelo, actual:bf };
+  }
+  return out;
+}
+const nkg = v => String(v).replace('.', ',');      // 5.4 → 5,4, que es como se escribe aquí
+function usarReco(cual, v){
+  const el=$(cual==='gain' ? "#onbGainKg" : "#onbLoseKg");
+  if(!el) return;
+  el.value=v; updateMetaNota(); onbRevalida();
+}
+function metaRecoHTML(p){
+  if(!p.weight) return `<div class="note">Escribe tu <b>peso</b> arriba y te digo cuánto es realista pedirle al cuerpo.</div>`;
+  const r=metaRecomendada(p);
+  const nivel={beg:'principiante',int:'intermedio',adv:'avanzado'}[p.level]||'';
+  const L=[];
+  if(p.goal!=='fat' && r.ganar)
+    L.push(`<div class="reco-l"><b>Ganar músculo:</b> con tu nivel (${nivel}) lo realista es
+      <b style="color:var(--accent)">${nkg(r.ganar.min)}–${nkg(r.ganar.max)} kg en un año</b>, que son unos
+      ${nkg(r.ganar.mes)} kg al mes. Más que eso no es músculo, es grasa.
+      <button class="btn ghost mini" onclick="usarReco('gain',${r.ganar.max})">Usar ${nkg(r.ganar.max)}</button></div>`);
+  if(p.goal!=='muscle'){
+    if(r.perder && r.perder.max>0)
+      L.push(`<div class="reco-l"><b>Perder grasa:</b> estás en ${r.perder.actual} %. Bajar
+        <b style="color:var(--accent)">${nkg(r.perder.reco)} kg</b> te deja en el ${r.perder.diana} %, que es la
+        referencia saludable. Tu tope son ${nkg(r.perder.max)} kg: por debajo del ${r.perder.suelo} % ya no es sano.
+        <button class="btn ghost mini" onclick="usarReco('lose',${r.perder.reco})">Usar ${nkg(r.perder.reco)}</button></div>`);
+    else if(r.perder)
+      L.push(`<div class="reco-l"><b>Perder grasa:</b> con ${r.perder.actual} % ya estás por debajo de la
+        referencia saludable (${r.perder.diana} %). No te hace falta bajar más.</div>`);
+    else
+      L.push(`<div class="reco-l"><b>Perder grasa:</b> escribe tu <b>% de grasa</b> arriba y te digo
+        cuántos kg puedes bajar antes de tocar tu suelo saludable.</div>`);
+  }
+  if(p.goal==='recomp')
+    L.push(`<div class="reco-l" style="color:var(--muted)">Las dos cosas a la vez van <b>más lento</b>
+      que por separado: el cuerpo no puede estar en déficit y en superávit el mismo día.</div>`);
+  if(p.goal==='strength')
+    L.push(`<div class="reco-l" style="color:var(--muted)">La fuerza se mide en <b>kilos de barra</b>, no de
+      cuerpo. Estos kg solo sirven para calcularte el plazo; tu progreso real lo verás en el 1RM de Progreso.</div>`);
+  return `<div class="note" style="margin:0 0 9px">${L.join('')}</div>`;
+}
+
 /* Trayectoria mes a mes de peso y % de grasa a los ritmos de ESTE usuario.
    La comparten el test, la diapositiva y la pestaña Cuerpo, para que las tres
    cuenten exactamente lo mismo. */
@@ -11333,10 +11511,12 @@ function renderMetaQuestion(reiniciar){
   const gAnt=$("#onbGainKg"), lAnt=$("#onbLoseKg");
   const gVal=(!reiniciar&&gAnt)?gAnt.value:(def.ganar||'');
   const lVal=(!reiniciar&&lAnt)?lAnt.value:(def.perder||'');
-  $("#onbMeta").innerHTML=
+  /* La recomendación va ARRIBA, antes de las casillas: si va debajo ya has
+     escrito el número y el consejo llega tarde. */
+  $("#onbMeta").innerHTML= metaRecoHTML(p) +
     (p.goal!=='muscle'?`<div class="setrow"><span class="n" style="width:122px">Perder grasa</span><input id="onbLoseKg" inputmode="decimal" value="${lVal}" placeholder="0"><span class="u">kg</span></div>`:'')+
     (p.goal!=='fat'   ?`<div class="setrow"><span class="n" style="width:122px">Ganar músculo</span><input id="onbGainKg" inputmode="decimal" value="${gVal}" placeholder="0"><span class="u">kg</span></div>`:'');
-  ["#onbLoseKg","#onbGainKg"].forEach(s=>{ const el=$(s); if(el) el.addEventListener('input', updateMetaNota); });
+  ["#onbLoseKg","#onbGainKg"].forEach(s=>{ const el=$(s); if(el) el.addEventListener('input', ()=>{ updateMetaNota(); onbRevalida(); }); });
   updateMetaNota();
 }
 function updateBioNota(){
@@ -11380,22 +11560,99 @@ function updateMetaNota(){
             :`<div style="margin-top:5px;color:var(--muted)">Escribe tu <b>% de grasa</b> arriba y te dibujo cómo va a bajar mes a mes.</div>`)
     + (t.avisos.length?`<div style="color:var(--warn);margin-top:6px"> ${t.avisos[0]}</div>`:'');
 }
-/* Sin esto la app aceptaba 220 kg con 1,35 m (IMC 120,7) o 35 kg con 2,10 m (IMC 7,9). */
+/* Sin esto la app aceptaba 220 kg con 1,35 m (IMC 120,7) o 35 kg con 2,10 m (IMC 7,9).
+   Devuelve {sel, msg} y no solo el texto: hasta ahora los fallos salían como un
+   toast que se iba solo y no señalaba nada, así que sabías que algo estaba mal
+   pero no DÓNDE. El selector es lo que permite pintar el campo de rojo. */
 function validateProfile(p){
-  if(!p.weight||!p.height)        return "Falta peso o estatura";
-  if(p.age<12||p.age>100)         return "La edad debe estar entre 12 y 100 años";
-  if(p.weight<30||p.weight>300)   return "El peso debe estar entre 30 y 300 kg";
-  if(p.height<120||p.height>230)  return "La estatura debe estar entre 120 y 230 cm";
-  if(p.bf!=null && (p.bf<3||p.bf>70)) return "El % de grasa debe estar entre 3 y 70";
+  if(!p.weight)                   return {sel:"#onbW", msg:"Falta tu peso"};
+  if(!p.height)                   return {sel:"#onbH", msg:"Falta tu estatura"};
+  if(p.age<12||p.age>100)         return {sel:"#onbAge", msg:"La edad debe estar entre 12 y 100 años"};
+  if(p.weight<30||p.weight>300)   return {sel:"#onbW", msg:"El peso debe estar entre 30 y 300 kg"};
+  if(p.height<120||p.height>230)  return {sel:"#onbH", msg:"La estatura debe estar entre 120 y 230 cm"};
+  if(p.bf!=null && (p.bf<3||p.bf>70)) return {sel:"#onbBf", msg:"El % de grasa debe estar entre 3 y 70"};
   const bmi=p.weight/Math.pow(p.height/100,2);
-  if(bmi<12||bmi>60) return `Con ${p.weight} kg y ${p.height} cm el IMC sale ${bmi.toFixed(1)}: revisa los datos`;
+  if(bmi<12||bmi>60) return {sel:"#onbW", msg:`Con ${p.weight} kg y ${p.height} cm el IMC sale ${bmi.toFixed(1)}: revisa el peso y la estatura`};
   return null;
+}
+
+/* =====  ERRORES QUE SE VEN  =====
+   Marca el campo en rojo, escribe el motivo justo debajo y sube hasta él. El
+   mensaje se queda hasta que lo arreglas, al revés que el toast. */
+function onbLimpiaErr(){
+  document.querySelectorAll('#onbModal .campo-mal').forEach(el=>el.classList.remove('campo-mal'));
+  document.querySelectorAll('#onbModal .err-campo').forEach(el=>el.remove());
+}
+let _onbYaFallo=false;                 // hasta el primer fallo no se valida en vivo
+function onbErr(sel, msg){
+  onbLimpiaErr();
+  _onbYaFallo=true;
+  const el=$(sel);
+  if(!el){ toast(msg); return; }
+  el.classList.add('campo-mal');
+  const aviso=document.createElement('div');
+  aviso.className='err-campo';
+  aviso.innerHTML=TXT_SEGURO(msg);
+  /* Va después del contenedor cuando el campo vive dentro de una row2, si no el
+     mensaje se metía en la mitad de la fila y salía cortado a media palabra. */
+  const fila=el.closest('.row2');
+  (fila||el).insertAdjacentElement('afterend', aviso);
+  el.scrollIntoView({block:'center', behavior:'smooth'});
+  if(el.focus) try{ el.focus({preventScroll:true}); }catch(e){ el.focus(); }
+}
+/* Una vez que has fallado, se revalida mientras escribes: así ves desaparecer el
+   rojo en cuanto lo corriges, sin tener que volver a pulsar el botón. */
+function onbRevalida(){
+  if(!_onbYaFallo) return;
+  const p=onbPerfilParcial();
+  p.goalGainKg=+(($("#onbGainKg")||{}).value)||0;
+  p.goalLoseKg=+(($("#onbLoseKg")||{}).value)||0;
+  const e=validateProfile(p);
+  if(e) onbErr(e.sel, e.msg);
+  else if(!p.goalGainKg && !p.goalLoseKg) onbErr("#onbMeta", "Escribe cuántos kg quieres ganar o perder");
+  else onbLimpiaErr();
+}
+
+/* =====  POR QUÉ NO SALIÓ LA RUTINA  =====
+   El mensaje viejo era «no pude armar la rutina con ese equipo», y muchas veces
+   el equipo no tenía nada que ver: podían ser las lesiones marcadas. Esto repite
+   los filtros de generatePlan contando cuántos ejercicios sobreviven a cada uno,
+   para poder decir cuál es el que te deja sin nada y qué tocar para arreglarlo. */
+function diagnosticoPlan(p){
+  const pool=exercisePool();
+  const eqOK  = id => p.equipment==='gym' ? true : ['mancuerna','corporal'].includes((pool[id].tag||{}).eq);
+  const injOK = id => !((pool[id].tag||{}).risk||[]).some(r=>(p.injuries||[]).includes(r));
+  const cnt={};
+  Object.keys(pool).forEach(id=>{
+    const e=pool[id];
+    if(e.cardio || !e.mus || !e.mus.length) return;
+    const m=e.mus[0];
+    cnt[m]=cnt[m]||{tot:0, trasEq:0, ok:0};
+    cnt[m].tot++;
+    if(eqOK(id)){ cnt[m].trasEq++; if(injOK(id)) cnt[m].ok++; }
+  });
+  /* El músculo peor parado manda: es el que deja un día sin ejercicios. */
+  let peor=null;
+  Object.keys(cnt).forEach(m=>{ if(!peor || cnt[m].ok<cnt[peor].ok) peor=m; });
+  if(!peor) return {sel:"#onbEq", msg:"No hay ejercicios disponibles con esa configuración."};
+  const c=cnt[peor], nm=MUSCLE_ES[peor]||peor;
+  const ej = n => n===1 ? '1 ejercicio' : n+' ejercicios';
+  if(c.trasEq<2)
+    return {sel:"#onbEq", msg:`Solo con mancuernas queda ${ej(c.trasEq)} de ${nm} de los ${c.tot} del catálogo, y hacen falta al menos 2. Cambia a gimnasio completo o quita ${nm.toLowerCase()} de las zonas prioritarias.`};
+  if(c.ok<2)
+    return {sel:"#onbInj", msg:`Las lesiones que marcaste descartan casi todo el trabajo de ${nm}: queda ${ej(c.ok)} de ${c.trasEq}, y hacen falta 2. Desmarca la que ya no te moleste.`};
+  if((p.minutes||60)<45)
+    return {sel:"#onbMin", msg:`Con ${p.minutes} minutos por sesión no caben ni los básicos. Sube a 45 min o más.`};
+  /* Último recurso: los filtros dejan material de sobra, así que el problema está
+     en el reparto. No se culpa al equipo, que es lo que hacía el mensaje viejo. */
+  return {sel:"#onbDays", msg:`Hay ejercicios de sobra para todo, así que el problema es el reparto: con ${p.days} días y ${p.legDays} de pierna no me cuadra. Cambia uno de los dos.`};
 }
 function generateFromOnboarding(){
   const redo = (_onbMode==='redo');
   const name = redo ? PROFILE : ($("#onbName").value||'').trim();
-  if(!name){ toast("Escribe tu nombre"); return; }
-  if(!redo && PROFILES[name]){ toast("Ya existe un usuario con ese nombre"); return; }
+  onbLimpiaErr();
+  if(!name){ onbErr("#onbName", "Escribe tu nombre"); return; }
+  if(!redo && PROFILES[name]){ onbErr("#onbName", `Ya existe un usuario que se llama "${name}". Pon otro nombre.`); return; }
   const p={ name, sex:$("#onbSex").value, age:+$("#onbAge").value||30,
     weight:+$("#onbW").value||0, height:+$("#onbH").value||0, bf:+$("#onbBf").value||null,
     goal:$("#onbGoal").value, level:$("#onbLevel").value, days:+$("#onbDays").value,
@@ -11405,12 +11662,14 @@ function generateFromOnboarding(){
     goalGainKg:+(($("#onbGainKg")||{}).value)||0, goalLoseKg:+(($("#onbLoseKg")||{}).value)||0,
     createdAt:today() };
   const err=validateProfile(p);
-  if(err){ toast(err); return; }
-  if(!p.goalGainKg && !p.goalLoseKg){ toast("Escribe tu meta en kg"); return; }
+  if(err){ onbErr(err.sel, err.msg); return; }
+  if(!p.goalGainKg && !p.goalLoseKg){ onbErr("#onbMeta", "Escribe cuántos kg quieres ganar o perder"); return; }
   /* Las semanas ya no se eligen a ciegas: salen del tiempo que exige TU meta. */
   p.weeks = goalTimeline(p).semanas;
   const plan=generatePlan(p);
-  if(!plan.length || plan.some(d=>!d.ex.length)){ toast("No pude armar la rutina con ese equipo"); return; }
+  if(!plan.length || plan.some(d=>!d.ex.length)){
+    const d=diagnosticoPlan(p); onbErr(d.sel, d.msg); return; }
+  onbLimpiaErr(); _onbYaFallo=false;
   if(!redo){ addProfileEntry(name); loadProfile(name); }
   DB.profile=p; DB.plan=plan; DB.dislikes=DB.dislikes||[];
   if(p.weight && !(DB.body||[]).length) DB.body=[{date:today(), w:String(p.weight), bf:p.bf?String(p.bf):''}];
@@ -11524,6 +11783,35 @@ const BOT_MUS_RAW={pecho:'pecho',pectoral:'pecho',pectorales:'pecho',pechera:'pe
 const BOT_MUS={};
 Object.keys(BOT_MUS_RAW).forEach(k=>BOT_MUS[botStem(botNorm(k))]=BOT_MUS_RAW[k]);
 const botMusEn = q => { for(const w of botToks(q)) if(BOT_MUS[w]) return BOT_MUS[w]; return null; };
+
+/* Buscar un ejercicio POR SU NOMBRE. El chat solo entendía músculos: pedirle
+   «el jueves quiero hip thrust» contestaba «¿de qué músculo?», porque hip thrust
+   no es un músculo. Aquí se quitan los verbos, los días y las palabras que YA son
+   un músculo, y lo que queda tiene que estar ENTERO en el nombre del ejercicio.
+   Esa exigencia es lo que separa los dos casos: «hip thrust» deja [hip, thrust] y
+   encuentra el ejercicio; «añade un ejercicio de glúteo» no deja nada útil y cae
+   en la búsqueda por músculo de siempre. Con «basta una palabra» habría devuelto
+   el press francés al pedir press banca. Los días van con su forma cortada
+   (lunes→lune) porque botToks quita la -s final de las palabras largas. */
+const BOT_ADD_STOP=new Set(('anade agrega mete meter pon poner ponme ponerme coloca colocar colocame incluye incluir '+
+  'sumar suma quisiera queria gustaria ejercicio plan rutina dia dias semana entreno entrenar sesion '+
+  'lunes lune martes marte miercoles miercole jueves jueve viernes vierne sabado domingo').split(' '));
+function botBuscaCatalogo(q){
+  const pool=poolCached();
+  const t=botToks(q).filter(w=>!BOT_ADD_STOP.has(w) && !BOT_MUS[w]);
+  if(!t.length) return null;
+  let best=null;
+  for(const id of Object.keys(pool)){
+    const e=pool[id];
+    if(e.cardio || !e.mus || !e.mus.length) continue;
+    const nt=botToks(e.n);
+    if(!t.every(w=>nt.includes(w))) continue;
+    /* A igualdad, gana el nombre más corto: pedir «hip thrust» debe dar el hip
+       thrust con barra, no «puente / hip thrust a repeticiones». */
+    if(!best || nt.length<best.len) best={id, len:nt.length};
+  }
+  return best ? best.id : null;
+}
 
 /* Devuelve [{p, s}] ordenado. `s` sirve para decidir si hay evidencia suficiente
    (§6) o si la pregunta se sale del dominio (§7), así que se expone el número. */
@@ -12798,6 +13086,10 @@ function botResp(ok){
 function botAplicado(msg){
   DB.plan=DAYS; save(); rebuildPlanIndexes(); buildExerciseMedia();
   renderDayChips(); renderDay(); buildProgSel(); renderProg(); renderPlanInfo();
+  /* Faltaban estas dos: tocar el plan por el chat dejaba el mapa de fatiga del
+     Cuerpo y el resumen con el volumen de ANTES hasta que cambiabas de pestaña.
+     Vale para cualquier cambio del bot, no solo para añadir. */
+  renderHeat(); renderOverview();
   toast("Plan actualizado");
   return msg;
 }
@@ -12850,7 +13142,12 @@ function botPlanIntent(q){
   const baja   =/\b(menos|baja|bajar|reduce|recorta|quita|quitar)\b/.test(n);
   const series =/\b(serie|series|volumen)\b/.test(n);
   /* "quiero otro ejercicio" es un CAMBIO, no un añadido: si suena a quitar, gana quitar. */
-  const añadeEx=!quitar && /\b(añade|anade|agrega|mete|pon|incluye|quiero)\b/.test(n) && /\bejercicio/.test(n);
+  const verboAñadir=/\b(añade|anade|agrega|mete|meter|pon|poner|ponme|coloca|colocar|incluye|incluir|quiero|quisiera)\b/.test(n);
+  /* Dos formas de pedirlo: por músculo ("añade un ejercicio de glúteo") o por
+     nombre ("el jueves quiero hip thrust"). La segunda no llevaba la palabra
+     "ejercicio" y por eso ni siquiera entraba aquí. */
+  const exNombrado = (!quitar && verboAñadir) ? botBuscaCatalogo(q) : null;
+  const añadeEx=!quitar && verboAñadir && (/\bejercicio/.test(n) || !!exNombrado);
 
   if(!DB.profile || !DAYS.length){
     if(quitar||mover||series||añadeEx) return {msg:"Primero haz el test de la pestaña Hoy: sin plan no tengo nada que cambiar."};
@@ -12859,17 +13156,32 @@ function botPlanIntent(q){
 
   /* 1 · añadir un ejercicio nuevo de un músculo */
   if(añadeEx){
-    const mus=botMusEn(q);
-    if(!mus) return {msg:"¿De qué músculo? Dime por ejemplo «añade un ejercicio de glúteo el viernes»."};
     let di=botBuscaDia(q); if(di<0) di=curIdx;
     const pool=poolCached(), prof=DB.profile||{};
     const usados=new Set(DAYS.flatMap(d=>d.ex.map(e=>logKey(e.id))));
-    const cand=Object.keys(pool).filter(id=>{
-      const e=pool[id];
-      if(e.cardio || !e.mus || e.mus[0]!==mus || usados.has(logKey(id))) return false;
-      if(prof.equipment==='db' && !['mancuerna','corporal'].includes((e.tag||{}).eq)) return false;
-      return !((e.tag||{}).risk||[]).some(r=>(prof.injuries||[]).includes(r));
-    })[0];
+    let cand=null, mus=null;
+    /* Si dijiste el nombre, va ESE. Antes se cogía el primer candidato del
+       músculo, así que pedir un ejercicio concreto te metía otro cualquiera. */
+    if(exNombrado){
+      if(usados.has(logKey(exNombrado)))
+        return {msg:`<b>${pool[exNombrado].n}</b> ya lo tienes en el plan.`};
+      const e=pool[exNombrado];
+      if(prof.equipment==='db' && !['mancuerna','corporal'].includes((e.tag||{}).eq))
+        return {msg:`<b>${e.n}</b> necesita más que mancuernas, y tu perfil dice que solo tienes eso.`};
+      const choca=((e.tag||{}).risk||[]).filter(r=>(prof.injuries||[]).includes(r));
+      if(choca.length)
+        return {msg:`<b>${e.n}</b> está descartado por la lesión que marcaste (${choca.join(', ')}). Si ya estás bien, quítala rehaciendo el test.`};
+      cand=exNombrado; mus=e.mus[0];
+    }else{
+      mus=botMusEn(q);
+      if(!mus) return {msg:"¿Qué ejercicio, o de qué músculo? Dime «añade un ejercicio de glúteo el viernes» o «el jueves quiero hip thrust»."};
+      cand=Object.keys(pool).filter(id=>{
+        const e=pool[id];
+        if(e.cardio || !e.mus || e.mus[0]!==mus || usados.has(logKey(id))) return false;
+        if(prof.equipment==='db' && !['mancuerna','corporal'].includes((e.tag||{}).eq)) return false;
+        return !((e.tag||{}).risk||[]).some(r=>(prof.injuries||[]).includes(r));
+      })[0];
+    }
     if(!cand) return {msg:`No me queda ningún ejercicio de ${MUSCLE_ES[mus]||mus} que no tengas ya en el plan.`};
     /* Los de EXTRA_EX no traen series/reps/descanso: se recetan igual que en el
        rescate de balanceVolume, con el objetivo y el nivel del perfil. */
@@ -13893,8 +14205,17 @@ renderProg();
 renderOverview();
 //  la pregunta de la meta se adapta al objetivo y estima el plazo en vivo
 $("#onbGoal").addEventListener("change", ()=>renderMetaQuestion(true));
-["#onbSex","#onbLevel","#onbDays"].forEach(s=>$(s).addEventListener("change", updateMetaNota));
-["#onbW","#onbBf"].forEach(s=>$(s).addEventListener("input", updateMetaNota));
+/* La recomendación depende del peso, el sexo, el nivel y el % de grasa, así que
+   se rehace el bloque entero (renderMetaQuestion) y no solo la nota de abajo.
+   Se pasa `false` para NO pisar lo que ya hayas escrito en las casillas. */
+const _recoRefresca = ()=>{ renderMetaQuestion(false); onbRevalida(); };
+["#onbSex","#onbLevel"].forEach(s=>$(s).addEventListener("change", _recoRefresca));
+["#onbW","#onbBf"].forEach(s=>$(s).addEventListener("input", _recoRefresca));
+["#onbDays"].forEach(s=>$(s).addEventListener("change", updateMetaNota));
+//  el resto de campos solo limpian su marca de error en cuanto los corriges
+["#onbName","#onbAge","#onbH","#onbMin","#onbEq"].forEach(s=>{
+  const el=$(s); if(el) el.addEventListener("input", onbRevalida);
+});
 ["#onbCardioTipo","#onbCardioMin"].forEach(s=>$(s).addEventListener("change", updateMetaNota));
 //  biotipo y músculo de arranque
 ["#onbBio","#onbStart"].forEach(s=>$(s).addEventListener("change", updateBioNota));
