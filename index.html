@@ -399,6 +399,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
   letter-spacing:.5px;margin:14px 0 8px}
 .pq-pie{font-size:11px;color:var(--muted);line-height:1.5;margin-top:10px;
   padding-top:9px;border-top:1px solid var(--line)}
+.heat-rango{font-size:var(--t-xs);color:var(--muted);line-height:1.5;
+  padding:var(--s2) 0 var(--s3);border-bottom:1px solid var(--line);margin-bottom:var(--s1)}
+.heat-rango b{color:var(--n-300)}
 .reco-l{margin-bottom:7px}
 .reco-l .btn{margin-left:6px;vertical-align:middle}
 .refs{font-size:var(--t-xs);color:var(--muted)}
@@ -9848,8 +9851,24 @@ function musculosDeLog(k){
   }
   return _musPorLog[k];
 }
+/* Los 7 días que cuenta el mapa de fatiga, HOY INCLUIDO.
+
+   EL FALLO QUE ARREGLA. El corte era `date < hoy-7` y se descartaba solo lo
+   ANTERIOR a hace 7 días, así que el día -7 seguía dentro: la ventana contaba 8
+   días, o sea una sesión entera de más. Con un plan de 5 días eso mete otra vez
+   el entrenamiento de la semana pasada y el mapa se queda en ámbar o rojo
+   permanentemente — parece sobreentrenamiento y no lo es. Restando 6 y contando
+   hoy salen 7 días de verdad.
+
+   Se devuelven las dos fechas y no solo el corte porque la pantalla las enseña:
+   si el usuario no ve QUÉ se está contando, no tiene forma de saber si el mapa
+   está atascado o es que de verdad entrenó mucho. */
+function VENTANA_FATIGA(){
+  const f=n=>{ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+  return {desde:f(6), hasta:f(0), dias:7};
+}
 function weeklyVolume(){
-  const out={}; const cutoff=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const out={}; const cutoff=VENTANA_FATIGA().desde;
   Object.keys(DB.logs||{}).forEach(k=>{
     const mm=musculosDeLog(k); if(!mm) return;
     (DB.logs[k]||[]).forEach(s=>{
@@ -10024,9 +10043,16 @@ function renderHeat(){
     + `<figure>${pintar(cuerpoFem()?HEAT_FRENTE_F:HEAT_FRENTE)}<figcaption>Frente</figcaption></figure>`
     + `<figure>${pintar(cuerpoFem()?HEAT_ESPALDA_F:HEAT_ESPALDA)}<figcaption>Espalda</figcaption></figure></div>`;
   const rows=Object.keys(MUSCLE_ES).map(m=>({m, v:+(v[m]||0).toFixed(1)})).sort((a,b)=>b.v-a.v);
-  $("#heatList").innerHTML = rows.some(r=>r.v>0)
+  /* El rango, escrito. Sin esto no había forma de distinguir "el mapa está
+     atascado" de "de verdad entrenaste mucho", que es justo la duda que levantó
+     este fallo. */
+  const w=VENTANA_FATIGA(), dm=f=>f.slice(8,10)+'/'+f.slice(5,7);
+  $("#heatList").innerHTML =
+    `<div class="heat-rango">Series registradas del <b>${dm(w.desde)}</b> al <b>${dm(w.hasta)}</b>
+       · ${w.dias} días. Lo anterior ya no cuenta.</div>`
+    + (rows.some(r=>r.v>0)
     ? rows.map(r=>`<div class="row" onclick="pickMusc('${r.m}')" style="cursor:pointer${_muscSel===r.m?';background:var(--bg2)':''}"><span>${MUSCLE_ES[r.m]}</span><b style="color:${heatColor(r.v)}">${r.v} series</b></div>`).join("")
-    : `<div class="empty">Registra tus series y aquí verás la fatiga acumulada por músculo.</div>`;
+    : `<div class="empty">Registra tus series y aquí verás la fatiga acumulada por músculo.</div>`);
   renderMuscDetail(v);
 }
 /* Detalle del músculo tocado: fatiga real (7 días) contra lo que el plan programa,
@@ -13855,6 +13881,28 @@ function botSelfTest(){
     if(!abierto) closeInfo();
   })();
 
+  /* Ventana del mapa de fatiga. El corte era `date < hoy-7`, que dejaba dentro el
+     dia -7: contaba 8 dias, o sea una sesion entera de mas, y el mapa se quedaba
+     en ambar permanentemente pareciendo sobreentrenamiento. Se prueba el limite
+     dia a dia porque es EXACTAMENTE donde estaba el fallo. */
+  (function(){
+    const bak=DB.logs;
+    const hace=n=>{ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+    const w=VENTANA_FATIGA();
+    ok(w.dias===7 && w.desde===hace(6) && w.hasta===hace(0), 'la ventana de fatiga no son 7 dias');
+    const k=Object.keys(DB.logs||{})[0];
+    if(k && musculosDeLog(k)){
+      const m=musculosDeLog(k)[0];
+      const tres=[{w:'50',r:'10'},{w:'50',r:'10'},{w:'50',r:'9'}];
+      const cuenta=n=>{ DB.logs={[k]:[{date:hace(n), sets:tres}]}; return (weeklyVolume()[m]||0)>0; };
+      [0,1,5,6].forEach(n=>ok(cuenta(n), `el dia -${n} deberia contar y no cuenta`));
+      [7,8,30].forEach(n=>ok(!cuenta(n), `el dia -${n} ya no deberia contar y sigue contando`));
+      DB.logs={[k]:[0,3,6,7,20].map(n=>({date:hace(n), sets:tres}))};
+      ok((weeklyVolume()[m]||0)===9, 'la ventana no descarta las sesiones viejas');
+    }
+    DB.logs=bak;
+  })();
+
   _botCtx.q=ctx.q; _botCtx.terms=ctx.terms;
   return 'botSelfTest OK';
 }
@@ -14756,7 +14804,14 @@ addEventListener('popstate', () => {
    primera vez que se pide, y son ~20 ms que no queremos delante del primer
    pintado. */
 if(['localhost','127.0.0.1'].includes(location.hostname)){
-  setTimeout(()=>{
+  let _yaCorrio=false;
+  const _corre=()=>{
+    if(_yaCorrio) return;
+    /* Solo con la pestana VISIBLE. En una pestana oculta el navegador suspende
+       la ejecucion, y una suite de 200 ms se midio en 158 SEGUNDOS: el numero no
+       significaba nada y ademas dejaba la pagina sin responder al volver. */
+    if(document.hidden) return;
+    _yaCorrio=true;
     [['botSelfTest', botSelfTest], ['atlasTest', atlasTest]].forEach(([n, f])=>{
       const t0=performance.now();
       try{
@@ -14769,7 +14824,9 @@ if(['localhost','127.0.0.1'].includes(location.hostname)){
         try{ toast('Comprobacion rota: '+e.message.slice(0,60)); }catch(_){}
       }
     });
-  }, 1500);
+  };
+  setTimeout(_corre, 1500);
+  document.addEventListener('visibilitychange', _corre);   // si arranco oculta, al mirarla
 }
 </script>
 
