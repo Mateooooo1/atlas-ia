@@ -2579,10 +2579,15 @@ function celebrate(){
   toast("¡"+DAYS[curIdx].short+" completado, "+PROFILE+"!");
   try{ if(navigator.vibrate) navigator.vibrate([90,60,90]); }catch(e){}
   autoBackup('sesión ' + DAYS[curIdx].short);        //  copia automática al cerrar la sesión
-  /* Y se sube a la tarjeta de cierre, que es lo único que queda por hacer. Sin
-     esto aparece arriba del todo y con el día entero desplegado no la ves. */
-  setTimeout(()=>{ const c=document.querySelector('.cierre');
-    if(c) c.scrollIntoView({block:'center', behavior:'smooth'}); }, 260);
+  /* El anuncio de cierre va AQUI y no en la tarjeta: el entrenamiento ya está
+     terminado y guardado, así que aunque el anuncio tarde o falle no interrumpe
+     nada. Y como devuelve siempre, la tarjeta aparece detrás pase lo que pase. */
+  adsMostrar('fin').finally(()=>{
+    /* Y se sube a la tarjeta de cierre, que es lo único que queda por hacer. Sin
+       esto aparece arriba del todo y con el día entero desplegado no la ves. */
+    setTimeout(()=>{ const c=document.querySelector('.cierre');
+      if(c) c.scrollIntoView({block:'center', behavior:'smooth'}); }, 260);
+  });
 }
 
 /* ==========  CERRAR LA SESIÓN  ==========
@@ -14702,6 +14707,10 @@ ensureCatalog();   // carga las fotos reales de los ejercicios (usa caché offli
 if(_varCambios>0) setTimeout(()=>toast(`Semana nueva: he cambiado ${_varCambios} ejercicio${_varCambios>1?'s':''}`), 900);
 if(!PROFILE) openProfile();   // primera vez: pide elegir usuario
 
+/* Los anuncios arrancan al final del fichero, DESPUÉS de sus constantes: van en
+   `const` y `const` no se iza, así que llamarlos desde aquí reventaba el arranque
+   con un ReferenceError. Es el mismo fallo que ya tuvimos con NOMBRE_SEGURO. */
+
 /* Accesos directos del icono (manteniendo pulsado en Android).
    El manifiesto ya los declaraba —"El entreno de hoy" y "Mi progreso"— apuntando
    a #hoy y #progreso, pero nadie leia el hash: los dos abrian donde estuvieras.
@@ -14803,6 +14812,83 @@ addEventListener('popstate', () => {
    Con retraso porque el indice BM25 de los 1.022 articulos se construye la
    primera vez que se pide, y son ~20 ms que no queremos delante del primer
    pintado. */
+/* ==========  ANUNCIOS  ==========
+   Dos intersticiales: uno al abrir el entrenamiento del dia y otro al cerrarlo.
+
+   SOLO EN LA APP DE ANDROID. AdMob es un plugin nativo: en la web y en el iPhone
+   (que va por PWA) no existe, asi que ahi no se muestra nada. Por eso todo pasa
+   por adsHay(), y si no hay plugin cada llamada es un no-op silencioso — nunca
+   puede romper un entrenamiento por un anuncio que no cargo.
+
+   UNA VEZ AL DIA CADA UNO. Sin este tope, salir y volver a entrar a la pestana
+   dispararia el de inicio cada vez: seria un anuncio cada dos minutos, que ademas
+   de insoportable es motivo de suspension en AdMob.
+
+   LOS IDs. Ahora van los de PRUEBA de Google, que existen justo para esto y
+   pintan un anuncio de relleno. Cuando lleguen los de la cuenta se cambian en
+   ADS_ID y ya esta: no hay que tocar nada mas. Poner los reales antes de tiempo
+   y darles a un boton uno mismo es "trafico invalido" y te cierran la cuenta. */
+const ADS_PRUEBA={ inicio:'ca-app-pub-3940256099942544/1033173712',
+                   fin:   'ca-app-pub-3940256099942544/1033173712' };
+const ADS_REALES={ inicio:'', fin:'' };          // <- pegar aqui los de AdMob
+const ADS_ID = k => ADS_REALES[k] || ADS_PRUEBA[k];
+const ADS_LS = 'atlas_ads_vistos';
+
+const adsPlugin = () => (window.Capacitor && window.Capacitor.Plugins || {}).AdMob || null;
+const adsHay    = () => !!(adsPlugin() && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+function adsYaVisto(cual){
+  try{
+    const v=JSON.parse(localStorage.getItem(ADS_LS)||'{}');
+    return v.d===today() && !!v[cual];
+  }catch(e){ return false; }
+}
+function adsMarca(cual){
+  try{
+    const v=JSON.parse(localStorage.getItem(ADS_LS)||'{}');
+    const n = v.d===today() ? v : {d:today()};
+    n[cual]=true;
+    localStorage.setItem(ADS_LS, JSON.stringify(n));
+  }catch(e){}
+}
+
+async function adsInit(){
+  if(!adsHay()) return;
+  try{ await adsPlugin().initialize({ initializeForTesting: !ADS_REALES.inicio }); }
+  catch(e){ console.warn('[ads] no arranco:', e && e.message); }
+}
+
+/* Devuelve SIEMPRE, con anuncio o sin el. Lo que no puede pasar es que un fallo
+   de red deje al usuario mirando una pantalla en blanco a medio entrenamiento. */
+async function adsMostrar(cual){
+  if(!adsHay() || adsYaVisto(cual)) return false;
+  const P=adsPlugin();
+  try{
+    await P.prepareInterstitial({ adId: ADS_ID(cual), isTesting: !ADS_REALES[cual] });
+    await P.showInterstitial();
+    adsMarca(cual);
+    return true;
+  }catch(e){
+    console.warn('[ads] '+cual+' no se mostro:', e && e.message);
+    return false;
+  }
+}
+
+/* Arranque de los anuncios. Va AQUI, al final, y no arriba con el resto del
+   arranque: todo lo de arriba son `const`, que no se izan, y llamarlo antes
+   petaba con ReferenceError dejando la app a medio arrancar.
+
+   El intersticial de apertura espera a que la app esté pintada — encima de una
+   pantalla a medias parece un fallo, no un anuncio — y no sale nunca en día de
+   descanso ni con la sesión ya cerrada: ahí no estás empezando nada. */
+adsInit().then(()=>{
+  if(!PROFILE || !DB.profile || !DAYS.length) return;
+  const d=DAYS[curIdx];
+  if(!d || !d.ex.length || (typeof esDiaDescanso==='function' && esDiaDescanso())) return;
+  if(dayDoneCount()>=d.ex.length) return;              // ya lo terminaste
+  setTimeout(()=>adsMostrar('inicio'), 1200);
+});
+
 if(['localhost','127.0.0.1'].includes(location.hostname)){
   let _yaCorrio=false;
   const _corre=()=>{
