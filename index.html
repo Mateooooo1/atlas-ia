@@ -402,6 +402,19 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .heat-rango{font-size:var(--t-xs);color:var(--muted);line-height:1.5;
   padding:var(--s2) 0 var(--s3);border-bottom:1px solid var(--line);margin-bottom:var(--s1)}
 .heat-rango b{color:var(--n-300)}
+/* Casilla con peso sugerido. El placeholder normal ("kg", "reps") es un rótulo y
+   va apagado; este es un DATO calculado, así que se distingue en color de acento
+   —tenue, para que siga leyéndose como sugerencia y no como valor escrito. */
+input.sug::placeholder{color:var(--accent);opacity:.62;font-weight:700}
+/* Barra de adherencia, bajo los chips de los días. */
+.adh{padding:var(--s2) var(--s4) var(--s3)}
+.adh-txt{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap;
+  font-size:var(--t-xs);color:var(--muted);margin-bottom:6px}
+.adh-txt b{font-size:var(--t-md)}
+.adh-sub{color:var(--n-600)}
+.adh-racha{margin-left:auto;color:var(--gold,var(--warn));font-weight:700}
+.adh-bar{height:5px;background:var(--n-800);border-radius:var(--rp);overflow:hidden}
+.adh-bar >i{display:block;height:100%;border-radius:var(--rp);transition:width .4s var(--ease,ease)}
 .reco-l{margin-bottom:7px}
 .reco-l .btn{margin-left:6px;vertical-align:middle}
 .refs{font-size:var(--t-xs);color:var(--muted)}
@@ -1118,6 +1131,10 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
   <section class="view" id="v-prog">
     <div class="sec-head"><h2 data-i18n="h_prog">Progreso</h2><div class="sub" data-i18n="s_prog">Tu carga registrada en el tiempo</div></div>
     <div class="panel">
+      <!-- Buscador: el desplegable llega a 40+ ejercicios entre el plan y los que
+           ya no están en él, y en un móvil eso es una lista interminable. -->
+      <input id="progBuscar" placeholder="Buscar ejercicio…" autocomplete="off"
+             oninput="buildProgSel(); renderProg()" style="margin-bottom:8px">
       <select id="progSel"></select>
       <div class="restbtns" id="progReps" style="margin-top:8px"></div>
       <div id="progFiltNota" class="note" style="margin-top:6px"></div>
@@ -2289,6 +2306,64 @@ let curIdx = (new Date().getDay() in dayByWeekday) ? dayByWeekday[new Date().get
 
 /* ===================== RENDER DÍAS ===================== */
 const $ = s=>document.querySelector(s);
+/* =====  ADHERENCIA: LO QUE DE VERDAD MIDE SI CUMPLES  =====
+   Se cuenta el PLAN CUMPLIDO, no los días seguidos. Una racha de días castiga el
+   descanso, que es parte del programa —por eso existe la tarjeta de día de
+   descanso—, y empuja a entrenar cuando no toca. Eso es lesión, no constancia.
+
+   Semana = lunes a domingo, la del calendario, no las 6 del ciclo de carga.
+   Una sesión cuenta como hecha si ese día marcaste ALGO: un ejercicio hecho o una
+   serie registrada. Con exigir el día entero, faltar a un ejercicio te borraba la
+   semana y el número dejaba de motivar para pasar a fastidiar. */
+function lunesDe(f){
+  const d=new Date(f+'T12:00:00Z');
+  const w=(d.getUTCDay()+6)%7;                 // 0 = lunes
+  d.setUTCDate(d.getUTCDate()-w);
+  return d.toISOString().slice(0,10);
+}
+function diasEntrenados(){
+  const s=new Set(Object.keys(DB.done||{}).filter(d=>Object.keys(DB.done[d]||{}).length));
+  Object.values(DB.logs||{}).flat().forEach(x=>{ if(x && x.date) s.add(x.date); });
+  return s;
+}
+function adherencia(){
+  const meta=Math.max(1, DAYS.length||1);
+  const dias=diasEntrenados();
+  const porSemana={};
+  dias.forEach(d=>{ const l=lunesDe(d); porSemana[l]=(porSemana[l]||0)+1; });
+  const estaSem=lunesDe(today());
+  const hechos=porSemana[estaSem]||0;
+  const pct=Math.min(100, Math.round(hechos/meta*100));
+  /* Semanas completas SEGUIDAS, contando hacia atrás desde la anterior. La de
+     ahora no entra: aún está a medias y contarla haría bajar el número a mitad
+     de semana, que es justo cuando no hay que desanimar. */
+  let seguidas=0;
+  const d=new Date(estaSem+'T12:00:00Z');
+  for(;;){
+    d.setUTCDate(d.getUTCDate()-7);
+    const k=d.toISOString().slice(0,10);
+    if((porSemana[k]||0) >= meta) seguidas++; else break;
+    if(seguidas>520) break;                    // tope de cordura
+  }
+  return {hechos, meta, pct, seguidas, completa:hechos>=meta};
+}
+function barraAdherencia(){
+  if(!DB.profile || !DAYS.length) return '';
+  const a=adherencia();
+  const col = a.completa ? 'var(--accent)' : (a.pct>=50 ? 'var(--accent2)' : 'var(--muted)');
+  const racha = a.seguidas>0
+    ? `<span class="adh-racha">🔥 ${a.seguidas} semana${a.seguidas>1?'s':''} seguida${a.seguidas>1?'s':''}</span>`
+    : '';
+  return `<div class="adh">
+    <div class="adh-txt">
+      <b style="color:${col}">${a.pct}%</b> de tu semana
+      <span class="adh-sub">${a.hechos} de ${a.meta} sesiones</span>
+      ${racha}
+    </div>
+    <div class="adh-bar"><i style="width:${a.pct}%;background:${col}"></i></div>
+  </div>`;
+}
+
 function renderDayChips(){
   const wd = new Date().getDay();
   $("#days").innerHTML = DAYS.map((d,i)=>{
@@ -2301,6 +2376,11 @@ function renderDayChips(){
       return `<div class="chip" style="opacity:.6" onclick="askConfirm('Días de descanso: <b>${rest.join(', ')}</b>.\\n\\nRecuperación: sueño 7–9 h, proteína 1,6–2,2 g/kg/día e hidratación. Es cuando el cuerpo se adapta y crece.','Entendido','Descanso')">${lbl}</div>`;
     })()
     + `<div class="chip chip-edit" onclick="openDias()">Cambiar días</div>`;
+  /* Justo debajo de los días, que es donde miras al abrir la app. Se borra la
+     anterior primero: renderDayChips se llama en cada cambio de día, y sin esto
+     se iba apilando una barra nueva debajo de la otra. */
+  document.querySelectorAll('.adh').forEach(x=>x.remove());
+  $("#days").insertAdjacentHTML('afterend', barraAdherencia());
   const act=$("#days").querySelector('.chip.on'); if(act) act.scrollIntoView({inline:'center',block:'nearest'});
 }
 function setDay(i){ curIdx=i; renderDayChips(); renderDay(); if(!$("#v-day").classList.contains("on")) tab('day'); window.scrollTo(0,0); }
@@ -2426,6 +2506,9 @@ function renderDay(){
        repeticiones. Pedir "kg" ahí obliga a inventarse un número o a dejarlo vacío.
        El campo de carga pasa a ser un LASTRE opcional (cinturón, chaleco, mancuerna). */
     const bw = esBW(e);
+    /* Hay sugerencia de carga? Se calcula una vez por ejercicio y no por serie:
+       dentro del map sería releer el historial cuatro veces para el mismo dato. */
+    const sug = !!sugerenciaSerie(e);
     const setRows = e.cardio
       ? `<div class="setrow">
           <span class="n">${unit==='pasos'?'Pasos':(unit==='min'?'Minutos':'Valor')}</span>
@@ -2456,11 +2539,13 @@ function renderDay(){
             return `<div class="ssgrupo"><div class="ssnum">Serie ${k+1}</div>
               ${media(pa,'a')}${media(pb,'b')}</div>`;
           }
+          /* El peso sugerido va DENTRO de la casilla, en gris. Es solo el
+             placeholder: si no escribes nada, no se guarda nada. */
           return `<div class="setrow">
             <span class="n">Serie ${k+1}</span>
-            <input inputmode="decimal" placeholder="${unit==='seg'?'seg':'kg'}" value="" data-ex="${e.id}" data-k="${k}" data-f="w">
+            <input inputmode="decimal" placeholder="${phPeso(e)}" value="" data-ex="${e.id}" data-k="${k}" data-f="w"${sug?' class="sug"':''}>
             <span class="u">${uLbl||'kg'}</span>
-            <input inputmode="numeric" placeholder="reps" value="" data-ex="${e.id}" data-k="${k}" data-f="r">
+            <input inputmode="numeric" placeholder="${phReps(e)}" value="" data-ex="${e.id}" data-k="${k}" data-f="r"${sug?' class="sug"':''}>
             <span class="u">rp</span>
           </div>`;
         }).join("");
@@ -2820,7 +2905,7 @@ function buzz(){
    se deniega, y una vez denegado ya no se puede volver a pedir. */
 
 const _capNotif = () => (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) || null;
-let _avisoId=null, _avisoTimer=null;
+let _avisoId=null, _avisoTimer=null, _avisoIdCurso=null;
 
 async function avisoPermiso(){
   const cap=_capNotif();
@@ -2845,13 +2930,28 @@ async function avisoProgramar(seg){
     try{ const r=await cap.checkPermissions(); permiso = !!r && r.display==='granted'; }catch(e){}
     if(permiso){
       _avisoId=Math.floor(Date.now()/1000)%100000;
+      _avisoIdCurso=(_avisoId+1)%100000;
+      const fin=new Date(Date.now()+seg*1000);
+      const hhmm=String(fin.getHours()).padStart(2,'0')+':'+String(fin.getMinutes()).padStart(2,'0');
       try{
-        await cap.schedule({notifications:[{
-          id:_avisoId, title:'Descanso terminado', body:'A por la siguiente serie.',
-          schedule:{at:new Date(Date.now()+seg*1000)},
-        }]});
+        await cap.schedule({notifications:[
+          { id:_avisoId, title:'Descanso terminado', body:'A por la siguiente serie.',
+            schedule:{at:fin} },
+          /* La PERSISTENTE. Sale ya y se queda en la barra mientras descansas, que
+             es lo que se quiere al dejar el movil en el banco: bajas la cortina y
+             ves cuando toca volver sin desbloquear.
+             Lleva la HORA DE FIN y no una cuenta atras a proposito: una cuenta
+             atras obligaria a reprogramar la notificacion cada segundo -inviable
+             y ademas la barra parpadearia sin parar-. Una hora fija se lee de un
+             vistazo y no miente nunca.
+             ongoing + autoCancel:false para que no se pueda descartar de un
+             manotazo mientras sigue corriendo. */
+          { id:_avisoIdCurso, title:'Descanso en marcha',
+            body:'Vuelve a las '+hhmm+'  ·  '+Math.round(seg/60*10)/10+' min',
+            ongoing:true, autoCancel:false },
+        ]});
         return 'nativo';
-      }catch(e){ _avisoId=null; }
+      }catch(e){ _avisoId=null; _avisoIdCurso=null; }
     }
   }
   if(!('Notification' in window) || Notification.permission!=='granted') return 'no';
@@ -2873,8 +2973,15 @@ async function avisoProgramar(seg){
 function avisoCancelar(){
   if(_avisoTimer){ clearTimeout(_avisoTimer); _avisoTimer=null; }
   const cap=_capNotif();
-  if(cap && _avisoId!=null){ try{ cap.cancel({notifications:[{id:_avisoId}]}); }catch(e){} }
-  _avisoId=null;
+  /* Se cancelan LAS DOS: la alarma del final y la persistente. Si solo se
+     cancelara la alarma, la de "descanso en marcha" se quedaria clavada en la
+     barra para siempre —es ongoing, el usuario no puede quitarla— y al parar el
+     descanso te quedarias con un aviso mintiendo hasta reiniciar el movil. */
+  if(cap){
+    const ids=[_avisoId, _avisoIdCurso].filter(x=>x!=null).map(id=>({id}));
+    if(ids.length){ try{ cap.cancel({notifications:ids}); }catch(e){} }
+  }
+  _avisoId=null; _avisoIdCurso=null;
 }
 
 function startRest(s){
@@ -2933,8 +3040,19 @@ function drawTimer(){ const m=Math.floor(restLeft/60),sec=restLeft%60; $("#timer
    esta pestana se cae al catalogo completo. */
 const exProg = id => EXMAP[id] || poolCached()[id] || null;
 function buildProgSel(){
-  let opts = DAYS.map(d=>`<optgroup label="${d.short}">`+
-    d.ex.map(e=>`<option value="${e.id}">${e.n}</option>`).join("")+`</optgroup>`).join("");
+  /* Filtro del buscador. Se normaliza con botNorm para que "biceps" encuentre
+     "bíceps" y "prensa" encuentre "Prensa inclinada": sin quitar acentos, en un
+     teclado de móvil no das con la mitad de tu propio plan. */
+  const q=botNorm(($("#progBuscar")||{}).value||'');
+  const pasa = n => !q || botNorm(n).includes(q);
+  const antes=($("#progSel")||{}).value;      // para no perder la curva al teclear
+
+  let opts = DAYS.map(d=>{
+    const dentro=d.ex.filter(e=>pasa(e.n));
+    if(!dentro.length) return '';             // día sin coincidencias: no se pinta
+    return `<optgroup label="${d.short}">`+
+      dentro.map(e=>`<option value="${e.id}">${e.n}</option>`).join("")+`</optgroup>`;
+  }).join("");
   /* Los que ya no estan en el plan pero conservan series tuyas. Sin esto, el lunes
      que la rotacion semanal se lleva el press banca tu curva de press banca
      desaparece de la pestana: los datos siguen guardados, pero no hay ninguna
@@ -2943,11 +3061,29 @@ function buildProgSel(){
   const pool=poolCached();
   const clavesEnPlan=new Set(DAYS.flatMap(d=>d.ex.map(e=>logKey(e.id))));
   const viejos=Object.keys(DB.logs||{}).filter(id =>
-    (DB.logs[id]||[]).length && pool[id] && !clavesEnPlan.has(logKey(id)));
+    (DB.logs[id]||[]).length && pool[id] && !clavesEnPlan.has(logKey(id)) && pasa(pool[id].n));
   if(viejos.length) opts += `<optgroup label="Ya no están en tu plan">`+
     viejos.map(id=>`<option value="${id}">${pool[id].n}</option>`).join("")+`</optgroup>`;
-  $("#progSel").innerHTML=opts;
-  $("#progSel").onchange=renderProg;
+
+  const sel=$("#progSel");
+  if(!opts){
+    /* Sin resultados se deja el desplegable vacío y se avisa. Antes de este
+       buscador esto no podía pasar; ahora sí, y un select vacío sin explicación
+       parece que la app se rompió. */
+    sel.innerHTML='';
+    $("#progFiltNota").innerHTML=`Ningún ejercicio coincide con «${TXT_SEGURO(($("#progBuscar")||{}).value||'')}».`;
+    $("#chart").innerHTML='';
+    return;
+  }
+  sel.innerHTML=opts;
+  /* Si lo que estabas mirando sigue en la lista filtrada, se mantiene. Sin esto,
+     cada tecla te saltaba al primer resultado y la gráfica bailaba sola. */
+  if(antes && [...sel.options].some(o=>o.value===antes)) sel.value=antes;
+  sel.onchange=renderProg;
+  /* NO se llama a renderProg desde aquí: renderProg ya llama a buildProgSel
+     cuando la selección ha caducado, y las dos juntas se llamarían en bucle
+     infinito en cuanto un id dejara de ser válido. Quien teclea en el buscador
+     encadena las dos por su cuenta (ver el oninput del campo). */
 }
 /*  Filtro por rango de repeticiones (informe #12).
    Una curva que mezcla series de fuerza con series de bombeo esconde la señal:
@@ -3944,6 +4080,46 @@ function progressAdvice(e){
             : `Vas dentro del rango ${rr.low}–${rr.high}. <b>Mantén ${w} kg</b> y suma una repetición por serie.`};
 }
 const ADV_ICO={sube:['','var(--accent)'],baja:['','var(--warn)'],manten:['','var(--accent2)'],info:['','var(--muted)']};
+
+/* =====  EL PESO DE HOY, DENTRO DE LA PROPIA CASILLA  =====
+   progressAdvice ya decidía si tocaba subir, mantener o bajar, pero lo contaba en
+   una tarjeta APARTE, encima del formulario. Mirabas la casilla vacía y tenías que
+   acordarte de lo que ponía arriba. Esto mete el número donde vas a escribirlo:
+   sale en gris como sugerencia y desaparece en cuanto tecleas, así que no se
+   guarda nada que tú no hayas escrito.
+
+   Se reutiliza la MISMA decisión que la tarjeta —mismo salto de carga, mismos
+   umbrales— para que las dos nunca digan cosas distintas. */
+function sugerenciaSerie(e){
+  if(e.cardio || e.unit==='seg') return null;
+  const log=DB.logs[logKey(e.id)]||[];
+  const rr=parseReps(e.sr);
+  if(!log.length || !rr) return null;
+  const last=log[log.length-1];
+  const reps=(last.sets||[]).map(s=>+s.r||0).filter(x=>x>0);
+  const pesos=(last.sets||[]).map(s=>+s.w||0).filter(x=>x>0);
+  if(!reps.length) return null;
+  const w=pesos.length?Math.max.apply(null,pesos):0;
+  const bw=esBW(e);
+  /* Sin peso registrado (corporal sin lastre) no hay kg que sugerir: solo reps. */
+  if(!w && !bw) return {kg:null, reps:rr.low};
+  const salto=saltoCarga(e,w);
+  const minR=Math.min.apply(null,reps), maxR=Math.max.apply(null,reps);
+  let kg=w;
+  if(minR>=rr.high)      kg = w+salto;              // cerraste el rango: sube
+  else if(maxR<rr.low)   kg = Math.max(0, w-salto); // te quedaste corto: baja
+  return {kg:+kg.toFixed(2), reps:rr.low, bw};
+}
+/* El texto que se ve en gris dentro de la casilla. */
+function phPeso(e){
+  const s=sugerenciaSerie(e);
+  if(!s || s.kg==null) return e.unit==='seg' ? 'seg' : (esBW(e) ? 'lastre' : 'kg');
+  return String(s.kg).replace(/\.00$/,'');
+}
+function phReps(e){
+  const s=sugerenciaSerie(e);
+  return s ? String(s.reps) : 'reps';
+}
 function watermarkFor(e){
   const a=progressAdvice(e);
   if(!a) return `<div class="last">Sin registros previos — ¡estrena este ejercicio!</div>`;
@@ -13906,6 +14082,75 @@ function botSelfTest(){
       ok((weeklyVolume()[m]||0)===9, 'la ventana no descarta las sesiones viejas');
     }
     DB.logs=bak;
+  })();
+
+  /* Peso sugerido dentro de la casilla. Lo que se protege es que el numero del
+     placeholder y el de la tarjeta de arriba salgan de la MISMA decision: si se
+     separan, la app se contradice a si misma en la misma pantalla. */
+  (function(){
+    if(!DAYS.length) return;
+    const e=DAYS[curIdx].ex.find(x=>!x.cardio && !esBW(x) && parseReps(x.sr));
+    if(!e) return;
+    const bak=DB.logs, k=logKey(e.id), rr=parseReps(e.sr);
+    const f=n=>{ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+    const con=(w,r)=>{ DB.logs={[k]:[{date:f(3), sets:[{w:String(w),r:String(r)},{w:String(w),r:String(r)}]}]}; };
+    DB.logs={};
+    ok(phPeso(e)==='kg' && phReps(e)==='reps', 'sin historial el placeholder deberia ser el rotulo');
+    con(50, rr.high);
+    const sube=+phPeso(e);
+    ok(sube>50, 'cerrando el rango deberia sugerir MAS peso');
+    ok(progressAdvice(e).txt.indexOf(String(sube))>=0, 'la casilla y la tarjeta dicen pesos distintos');
+    con(50, rr.low);
+    ok(+phPeso(e)===50, 'dentro del rango deberia mantener el peso');
+    con(50, Math.max(1, rr.low-2));
+    ok(+phPeso(e)<50, 'quedandote corto deberia sugerir MENOS peso');
+    ok(phReps(e)===String(rr.low), 'las reps sugeridas no son el minimo del rango');
+    DB.logs=bak;
+  })();
+
+  /* Adherencia. Mide plan cumplido, NO dias seguidos: una racha de dias castiga el
+     descanso, que forma parte del programa. Si alguien la cambia por eso, revienta. */
+  (function(){
+    if(!DAYS.length) return;
+    const bakD=DB.done, bakL=DB.logs, meta=DAYS.length;
+    const f=n=>{ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+    const marca=fs=>{ DB.done={}; DB.logs={}; fs.forEach(x=>DB.done[x]={t:true}); };
+    const sem=n=>Array.from({length:meta},(_,i)=>f(7*n+i));
+    marca([]);
+    ok(adherencia().pct===0 && adherencia().seguidas===0, 'sin nada hecho deberia dar cero');
+    marca(sem(1));
+    ok(adherencia().seguidas===1, 'una semana completa atras no cuenta como seguida');
+    marca([...sem(1),...sem(2)]);
+    ok(adherencia().seguidas===2, 'dos semanas completas no encadenan');
+    marca([...sem(1),...sem(3)]);
+    ok(adherencia().seguidas===1, 'la cadena no se corta con un hueco en medio');
+    marca([f(0)]);
+    ok(adherencia().hechos===1 && adherencia().pct===Math.round(100/meta), 'mal el porcentaje de la semana');
+    /* El lunes es el lunes: si lunesDe se desplaza, todas las semanas se parten mal. */
+    ok(new Date(lunesDe(today())+'T12:00:00Z').getUTCDay()===1, 'lunesDe no cae en lunes');
+    DB.done=bakD; DB.logs=bakL;
+  })();
+
+  /* Buscador de Progreso: sin acentos tiene que encontrar igual, y sin resultados
+     no puede dejar el desplegable vacio y mudo. */
+  (function(){
+    const inp=$("#progBuscar"), sel=$("#progSel");
+    if(!inp || !sel || !DAYS.length) return;
+    const prev=inp.value;
+    const busca=q=>{ inp.value=q; buildProgSel(); return sel.querySelectorAll('option').length; };
+    const todos=busca('');
+    ok(todos>0, 'el desplegable de progreso sale vacio sin filtro');
+    /* Ojo con la cadena imposible: "__nada__" NO vale, botNorm la deja en "nada"
+       y eso esta dentro de "DomiNADA". Y se lee textContent y no innerText porque
+       la pestana Progreso puede estar oculta, y en oculto innerText es ''. */
+    ok(busca('qqzzxx')===0 && /coincide/.test($("#progFiltNota").textContent||''),
+       'sin resultados no avisa de nada');
+    const conTilde=DAYS.flatMap(d=>d.ex).find(e=>/[áéíóú]/i.test(e.n));
+    if(conTilde){
+      const sinTilde=botNorm(conTilde.n).split(' ').filter(w=>w.length>3)[0];
+      ok(busca(sinTilde)>0, 'buscar sin tildes no encuentra "'+conTilde.n+'"');
+    }
+    inp.value=prev; buildProgSel();
   })();
 
   _botCtx.q=ctx.q; _botCtx.terms=ctx.terms;
