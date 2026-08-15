@@ -415,6 +415,10 @@ input.sug::placeholder{color:var(--accent);opacity:.62;font-weight:700}
 .adh-racha{margin-left:auto;color:var(--gold,var(--warn));font-weight:700}
 .adh-bar{height:5px;background:var(--n-800);border-radius:var(--rp);overflow:hidden}
 .adh-bar >i{display:block;height:100%;border-radius:var(--rp);transition:width .4s var(--ease,ease)}
+/* Botón de vídeo, dentro del modal de la foto del ejercicio. */
+.btn.vid{display:block;width:100%;margin:10px 0 0;text-align:center;text-decoration:none;
+  line-height:var(--tap);padding:0}
+.vid-off{font-size:var(--t-xs);color:var(--muted);text-align:center;margin-top:10px}
 .reco-l{margin-bottom:7px}
 .reco-l .btn{margin-left:6px;vertical-align:middle}
 .refs{font-size:var(--t-xs);color:var(--muted)}
@@ -1347,6 +1351,12 @@ input.sug::placeholder{color:var(--accent);opacity:.62;font-weight:700}
         <h3>Tu plan personalizado</h3>
         <div id="planInfo"></div>
       </div>
+      <!-- Recordatorio diario. Apagado de fábrica: una app que se enciende sola a
+           dar la lata acaba desinstalada. -->
+      <div class="panel" id="recoPanel" style="display:none">
+        <h3>Recordatorio diario</h3>
+        <div id="recoBody"></div>
+      </div>
       <div class="panel" id="intakePanel" style="display:none">
         <h3>Lo que llevas hoy</h3>
         <div id="intakeBody"></div>
@@ -1661,6 +1671,7 @@ input.sug::placeholder{color:var(--accent);opacity:.62;font-weight:700}
     <div id="modalImg"></div>
     <h3 id="modalName"></h3>
     <p id="modalCue"></p>
+    <div id="modalVideo"></div>
     <button class="btn primary close" onclick="closeModal()">Cerrar</button>
   </div>
 </div>
@@ -2871,7 +2882,29 @@ function openModal(id){
   const m=EXMEDIA[id];
   $("#modalName").textContent = e.n;
   $("#modalCue").innerHTML = e.cues.join(" · ") + (m&&m.name?` <span style="color:var(--muted)">· demostración: ${m.name}</span>`:'');
+  $("#modalVideo").innerHTML = botonVideo(e);
   $("#modal").classList.add("on");
+}
+
+/* =====  VER EL EJERCICIO EN VÍDEO  =====
+   Se abre una BÚSQUEDA en YouTube, no un enlace guardado. Guardar un id de vídeo
+   por ejercicio serían ~200 enlaces que se rompen solos —los vídeos se borran, se
+   hacen privados, cambian de dueño— y habría que revisarlos a mano para siempre.
+   Una búsqueda funciona para todos los ejercicios, incluidos los que se añadan
+   mañana, y no hay nada que mantener.
+
+   Va DENTRO del modal de la foto, que es donde acabas cuando no sabes hacer el
+   movimiento, y no en la ficha del día: ahí ya hay cuatro botones y esto no es
+   algo que necesites cada sesión.
+
+   Sale a un navegador externo a propósito. Y solo con conexión: la app entera
+   funciona sin ella, así que un botón que lleva a una pantalla de error sin red
+   es peor que no enseñarlo. */
+function botonVideo(e){
+  if(!navigator.onLine) return `<div class="vid-off">Conéctate para ver un vídeo de este ejercicio.</div>`;
+  const q=encodeURIComponent('como hacer ' + e.n + ' tecnica correcta');
+  return `<a class="btn ghost vid" href="https://www.youtube.com/results?search_query=${q}"
+     target="_blank" rel="noopener noreferrer">Ver cómo se hace en YouTube ↗</a>`;
 }
 function closeModal(){ $("#modal").classList.remove("on"); }
 
@@ -3799,7 +3832,7 @@ function tab(v){
      un usuario nuevo o cambiar de perfil no la actualizaba. Repintar aquí, cada vez que
      se abre la pestaña, es el único punto por el que pasan TODOS los caminos que cambian
      de usuario o de plan — más fiable que perseguir cada sitio que lo modifica. */
-  if(v==="guide"){ renderCatalogoMusc(); renderGlosario(); renderSupTable(); }
+  if(v==="guide"){ renderCatalogoMusc(); renderGlosario(); renderSupTable(); renderReco(); }
   $("#botFab").classList.toggle("on", v==="guide");   //  la burbuja del bot solo en la Guía
   window.scrollTo(0,0);
 }
@@ -11871,6 +11904,100 @@ function renderPlanSlide(){
 
     <button class="btn primary" style="width:100%;margin-top:4px" onclick="closePlanSlide()">Empezar </button>`;
 }
+/* =====  RECORDATORIO DIARIO  =====
+   APAGADO DE FÁBRICA y uno al día como mucho. Una app de gimnasio que se enciende
+   sola dos veces al día acaba desinstalada, y en Play eso se paga en reseñas.
+
+   SOLO EN LA APP DE ANDROID: programar una notificación para dentro de 14 horas
+   necesita el sistema operativo. En el navegador el único recurso sería un
+   setTimeout, y Android lo mata en cuanto cierras la pestaña — prometeríamos un
+   aviso que no va a llegar. Así que en la web se dice y no se ofrece.
+
+   Los mensajes rotan por día del año, no al azar: al azar te puede salir el mismo
+   dos días seguidos y parece que la app está rota. */
+const RECO_LS='atlas_reco';
+const RECO_ID=90210;                      // fijo: así se puede cancelar y reprogramar
+const RECORDATORIOS=[
+  ['Lo que cuenta es la semana', 'No pasa nada por mover un día. Pasa por no moverlo y perderlo.'],
+  ['¿Hoy toca?', 'Abre Atlas y mira qué te tocaba. Media hora bien puesta vale más que dos mal.'],
+  ['Hazte la foto', 'La báscula miente a corto plazo. Una foto cada mes no.'],
+  ['Un día flojo no rompe nada', 'Lo que rompe es la semana en blanco. Baja el peso y ve igual.'],
+  ['El descanso también entrena', 'Si hoy toca descansar, márcalo y no lo pienses más.'],
+  ['Apunta las series', 'Sin registro no hay progresión: la app no puede decirte cuánto subir.'],
+  ['Cambia el día, no el plan', 'Si hoy no puedes, muévelo. Para eso está el botón de cambiar días.'],
+];
+function recoPref(){
+  try{ return JSON.parse(localStorage.getItem(RECO_LS)||'{}'); }catch(e){ return {}; }
+}
+function recoGuarda(p){ try{ localStorage.setItem(RECO_LS, JSON.stringify(p)); }catch(e){} }
+function recoDeHoy(){
+  const d=new Date(), inicio=new Date(d.getFullYear(),0,0);
+  const dia=Math.floor((d-inicio)/864e5);
+  return RECORDATORIOS[dia % RECORDATORIOS.length];
+}
+async function recoAplicar(activo, hora){
+  const cap=_capNotif();
+  if(!cap) return 'sinapp';
+  try{ await cap.cancel({notifications:[{id:RECO_ID}]}); }catch(e){}
+  if(!activo) return 'off';
+  let permiso=false;
+  try{ const r=await cap.requestPermissions(); permiso = !!r && r.display==='granted'; }catch(e){}
+  if(!permiso) return 'denegado';
+  const [h,m]=String(hora||'18:00').split(':').map(Number);
+  const [tit,txt]=recoDeHoy();
+  try{
+    await cap.schedule({notifications:[{
+      id:RECO_ID, title:tit, body:txt,
+      /* repeats + on = todos los días a esa hora, lo programa el sistema. */
+      schedule:{ on:{hour:h, minute:m}, repeats:true, allowWhileIdle:true },
+    }]});
+    return 'ok';
+  }catch(e){ return 'error'; }
+}
+function recoToggle(){
+  const p=recoPref(); p.on=!p.on; p.hora=p.hora||'18:00';
+  recoGuarda(p);
+  recoAplicar(p.on, p.hora).then(r=>{
+    if(r==='denegado'){ p.on=false; recoGuarda(p); toast('Sin permiso de notificaciones no puedo avisarte.'); }
+    else if(r==='ok') toast('Listo: te aviso a las '+p.hora);
+    renderReco();
+  });
+  renderReco();
+}
+function recoHora(v){
+  const p=recoPref(); p.hora=v; recoGuarda(p);
+  if(p.on) recoAplicar(true, v).then(()=>toast('Cambiado a las '+v));
+  renderReco();
+}
+function renderReco(){
+  const box=$("#recoBody"), panel=$("#recoPanel");
+  if(!box || !panel) return;
+  if(!DB.profile){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  const p=recoPref(), [tit,txt]=recoDeHoy();
+  const nativo=!!_capNotif();
+  if(!nativo){
+    box.innerHTML=`<div class="note">Los recordatorios solo funcionan en la
+      <b>aplicación instalada</b>. En el navegador el aviso se cancela en cuanto
+      cierras la pestaña, así que prefiero no prometerlo.</div>`;
+    return;
+  }
+  box.innerHTML=`
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">
+      Un aviso al día, nunca más. Puedes apagarlo cuando quieras.</p>
+    <div class="setrow">
+      <span class="n" style="width:120px">Avisarme</span>
+      <button class="btn ${p.on?'primary':'ghost'} mini" onclick="recoToggle()">
+        ${p.on?'Activado':'Desactivado'}</button>
+    </div>
+    ${p.on?`<div class="setrow" style="margin-top:8px">
+      <span class="n" style="width:120px">A las</span>
+      <input type="time" value="${p.hora||'18:00'}" onchange="recoHora(this.value)">
+    </div>
+    <div class="note" style="margin-top:10px">Hoy te llegaría:<br>
+      <b>${TXT_SEGURO(tit)}</b><br>${TXT_SEGURO(txt)}</div>`:''}`;
+}
+
 function renderPlanInfo(){
   const p=DB.profile, panel=$("#planPanel");
   if(!p){ panel.style.display='none'; return; }
