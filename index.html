@@ -5156,6 +5156,11 @@ function openDuo(){
   $("#duoModal").classList.add("on");
   duoColocar(caja, _duoPos.duoBox);
   renderDuoModal();
+  /* Tercer anuncio, SOLO en dia de duo. Con duoOtro(): abrir este panel para
+     emparejarse por primera vez no lo dispara, porque ahi todavia no hay pareja.
+     Con retraso para que el modal ya este pintado detras — un intersticial encima
+     de una caja a medio abrir parece que la app se colgo. */
+  if(typeof duoOtro==='function' && duoOtro()) setTimeout(()=>adsMostrar('duo'), 900);
 }
 function closeDuo(){ $("#duoModal").classList.remove("on"); $("#duoBurbuja").classList.remove("on"); }
 function duoMinimizar(){
@@ -15286,7 +15291,9 @@ addEventListener('popstate', () => {
    primera vez que se pide, y son ~20 ms que no queremos delante del primer
    pintado. */
 /* ==========  ANUNCIOS  ==========
-   Dos intersticiales: uno al abrir el entrenamiento del dia y otro al cerrarlo.
+   Dos intersticiales en un dia normal: uno al abrir el entrenamiento del dia y
+   otro al cerrarlo. TRES si entrenas en duo: el de en medio sale al abrir el
+   panel de la pareja, y solo si ya hay pareja hecha (ver openDuo).
 
    SOLO EN LA APP DE ANDROID. AdMob es un plugin nativo: en la web y en el iPhone
    (que va por PWA) no existe, asi que ahi no se muestra nada. Por eso todo pasa
@@ -15302,8 +15309,11 @@ addEventListener('popstate', () => {
    ADS_ID y ya esta: no hay que tocar nada mas. Poner los reales antes de tiempo
    y darles a un boton uno mismo es "trafico invalido" y te cierran la cuenta. */
 const ADS_PRUEBA={ inicio:'ca-app-pub-3940256099942544/1033173712',
+                   duo:   'ca-app-pub-3940256099942544/1033173712',
                    fin:   'ca-app-pub-3940256099942544/1033173712' };
-const ADS_REALES={ inicio:'', fin:'' };          // <- pegar aqui los de AdMob
+const ADS_REALES={ inicio:'ca-app-pub-6862351818729892/3587211543',
+                   duo:   'ca-app-pub-6862351818729892/2445570592',
+                   fin:   'ca-app-pub-6862351818729892/4683198615' };
 const ADS_ID = k => ADS_REALES[k] || ADS_PRUEBA[k];
 const ADS_LS = 'atlas_ads_vistos';
 

@@ -26,7 +26,7 @@
    Se ignoro seis veces seguidas -por quien lo escribio- y el sintoma siempre fue
    el mismo: el movil mostrando la version anterior. Un recordatorio que falla
    seis veces no es un recordatorio, es un paso que tiene que hacer la maquina. */
-const VERSION = 'atlas-25ae189fc828';
+const VERSION = 'atlas-abe418783ed1';
 /* Lo que espera a la red TENIENDO copia guardada. Corto a proposito: pasado esto
    abrir la app importa mas que abrir la ultima version. */
 /* 2500 ms era demasiado poco. El index.html son 1,3 MB comprimidos: en datos
