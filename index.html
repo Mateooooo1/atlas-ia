@@ -406,9 +406,10 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
    confundía con lo que tú habías tecleado —que va en blanco—. En gris translúcido
    se lee como lo que es: una sugerencia que se borra al escribir encima. */
 input.sug::placeholder{color:var(--muted);opacity:.5;font-weight:400}
-/* La semana: fuego + entrenados/faltan + puntos. Una sola línea. */
-.adh{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
-  font-size:var(--t-xs);color:var(--muted);margin:var(--s2) 0 var(--s1)}
+/* Contador del plan, en la cabecera. flex:0 0 auto y nowrap: si creciera o
+   partiera en dos líneas empujaría el botón de Descanso fuera de la pantalla. */
+.adh{display:flex;align-items:center;gap:6px;flex:0 0 auto;white-space:nowrap;
+  font-size:var(--t-xs);color:var(--muted)}
 .adh-txt b{color:var(--txt);font-size:var(--t-sm)}
 .adh-fuego{font-size:16px;line-height:1;filter:grayscale(1);opacity:.35;
   transition:filter .3s,opacity .3s}
@@ -422,9 +423,6 @@ input.sug::placeholder{color:var(--muted);opacity:.5;font-weight:400}
   70%    {transform:scale(1.05) rotate(3deg)}
 }
 @media (prefers-reduced-motion:reduce){ .adh-fuego.vivo{animation:none} }
-.adh-pts{display:inline-flex;gap:4px;margin-left:2px}
-.adh-pts i{width:7px;height:7px;border-radius:50%;background:var(--n-700);display:block}
-.adh-racha{margin-left:auto;color:var(--warn);font-weight:700}
 /* Botón de vídeo, dentro del modal de la foto del ejercicio. */
 .btn.vid{display:block;width:100%;margin:10px 0 0;text-align:center;text-decoration:none;
   line-height:var(--tap);padding:0}
@@ -1110,6 +1108,9 @@ input.sug::placeholder{color:var(--muted);opacity:.5;font-weight:400}
         <h1>Atlas IA</h1>
         <p><span id="userTag"> —</span> · toca para cambiar</p>
       </div>
+      <!-- El contador del plan, en el hueco que quedaba libre. Va DENTRO de la
+           fila flex que ya existe, no debajo: asi no crece el header sticky. -->
+      <div id="adhSemana"></div>
       <button class="restbtn-top" onclick="toggleRestMenu()">Descanso</button>
     </div>
     <div class="restmenu" id="restMenu">
@@ -1135,10 +1136,6 @@ input.sug::placeholder{color:var(--muted);opacity:.5;font-weight:400}
     </div>
     <div class="bar"><i id="dayBar"></i></div>
     <div class="barlbl" id="dayProg">0 de 0 ejercicios hechos hoy</div>
-    <!-- La semana, con el fuego. Va AQUI y no bajo los chips de los dias: alli
-         estaba dentro del <header sticky> y crecia la cabecera, que se comia el
-         principio de la lista de ejercicios. -->
-    <div id="adhSemana"></div>
     <div id="duoBar"></div>
     <div id="motorAviso"></div>
     <div id="exList"></div>
@@ -2331,71 +2328,41 @@ let curIdx = (new Date().getDay() in dayByWeekday) ? dayByWeekday[new Date().get
 
 /* ===================== RENDER DÍAS ===================== */
 const $ = s=>document.querySelector(s);
-/* =====  ADHERENCIA: LO QUE DE VERDAD MIDE SI CUMPLES  =====
-   Se cuenta el PLAN CUMPLIDO, no los días seguidos. Una racha de días castiga el
-   descanso, que es parte del programa —por eso existe la tarjeta de día de
-   descanso—, y empuja a entrenar cuando no toca. Eso es lesión, no constancia.
-
-   Semana = lunes a domingo, la del calendario, no las 6 del ciclo de carga.
-   Una sesión cuenta como hecha si ese día marcaste ALGO: un ejercicio hecho o una
-   serie registrada. Con exigir el día entero, faltar a un ejercicio te borraba la
-   semana y el número dejaba de motivar para pasar a fastidiar. */
-function lunesDe(f){
-  const d=new Date(f+'T12:00:00Z');
-  const w=(d.getUTCDay()+6)%7;                 // 0 = lunes
-  d.setUTCDate(d.getUTCDate()-w);
-  return d.toISOString().slice(0,10);
-}
+/* =====  DIAS ENTRENADOS  =====
+   Un dia cuenta si ese dia marcaste ALGO: un ejercicio hecho o una serie
+   registrada. Exigir el dia entero haria que faltar a un ejercicio te borrara
+   el dia, y el contador pasaria de motivar a fastidiar. */
 function diasEntrenados(){
   const s=new Set(Object.keys(DB.done||{}).filter(d=>Object.keys(DB.done[d]||{}).length));
   Object.values(DB.logs||{}).flat().forEach(x=>{ if(x && x.date) s.add(x.date); });
   return s;
 }
-function adherencia(){
-  const meta=Math.max(1, DAYS.length||1);
-  const dias=diasEntrenados();
-  const porSemana={};
-  dias.forEach(d=>{ const l=lunesDe(d); porSemana[l]=(porSemana[l]||0)+1; });
-  const estaSem=lunesDe(today());
-  const hechos=porSemana[estaSem]||0;
-  const pct=Math.min(100, Math.round(hechos/meta*100));
-  /* Semanas completas SEGUIDAS, contando hacia atrás desde la anterior. La de
-     ahora no entra: aún está a medias y contarla haría bajar el número a mitad
-     de semana, que es justo cuando no hay que desanimar. */
-  let seguidas=0;
-  const d=new Date(estaSem+'T12:00:00Z');
-  for(;;){
-    d.setUTCDate(d.getUTCDate()-7);
-    const k=d.toISOString().slice(0,10);
-    if((porSemana[k]||0) >= meta) seguidas++; else break;
-    if(seguidas>520) break;                    // tope de cordura
-  }
-  return {hechos, meta, pct, seguidas, completa:hechos>=meta};
+/* =====  EL CONTADOR DEL PLAN ENTERO  =====
+   "Día 4 de 132", no "4 de 6 esta semana". El total sale de TU plan: las semanas
+   que pide tu meta por los días que entrenas a la semana —33 × 4 = 132—, así que
+   el número significa algo concreto y no un porcentaje que haya que traducir.
+
+   Se cuenta desde que creaste el perfil: los registros de un plan anterior no son
+   días de ESTE plan, y contarlos haría que estrenaras un plan nuevo con el
+   contador ya avanzado. */
+function progresoPlan(){
+  const p=DB.profile||{};
+  const porSemana=Math.max(1, DAYS.length||1);
+  const semanas=Math.max(1, +p.weeks||0);
+  const total=semanas*porSemana;
+  const desde=p.createdAt||'';
+  const hechos=[...diasEntrenados()].filter(d=>!desde || d>=desde).length;
+  return {hechos:Math.min(hechos,total), total, semanas, porSemana};
 }
-/* El fuego a la izquierda y, al lado, entrenados y los que faltan. El porcentaje
-   se fue: "4 de 6, te faltan 2" se entiende sin traducir, un 67 % no.
-   El fuego solo se enciende -y se mueve- si de verdad hay algo que celebrar; con
-   la semana a cero se queda apagado, porque si siempre arde no significa nada. */
+/* El fuego solo arde -y solo se mueve- si ya has entrenado algún día: si ardiera
+   siempre, no significaría nada. */
 function barraAdherencia(){
   if(!DB.profile || !DAYS.length) return '';
-  const a=adherencia();
-  const faltan=Math.max(0, a.meta-a.hechos);
-  const vivo = a.hechos>0;
-  const col = a.completa ? 'var(--accent)' : (a.hechos>0 ? 'var(--accent2)' : 'var(--n-700)');
-  const cola = a.completa
-    ? `<b style="color:var(--accent)">semana completa</b>`
-    : (faltan===1 ? `te falta <b>1</b>` : `te faltan <b>${faltan}</b>`);
-  const racha = a.seguidas>0
-    ? `<span class="adh-racha">${a.seguidas} semana${a.seguidas>1?'s':''} seguida${a.seguidas>1?'s':''}</span>` : '';
-  /* Los puntos son la semana de un vistazo: encendidos los hechos, apagados los
-     que faltan. Con seis sesiones se leen mas rapido que cualquier numero. */
-  const puntos=Array.from({length:a.meta},(_,i)=>
-    `<i class="${i<a.hechos?'on':''}" style="${i<a.hechos?`background:${col}`:''}"></i>`).join('');
-  return `<div class="adh">
+  const g=progresoPlan();
+  const vivo=g.hechos>0;
+  return `<div class="adh" title="${g.semanas} semanas × ${g.porSemana} días">
     <span class="adh-fuego ${vivo?'vivo':''}" aria-hidden="true">🔥</span>
-    <span class="adh-txt"><b>${a.hechos}</b> de ${a.meta} · ${cola}</span>
-    <span class="adh-pts">${puntos}</span>
-    ${racha}
+    <span class="adh-txt">Día <b>${g.hechos}</b> de ${g.total}</span>
   </div>`;
 }
 
@@ -14274,27 +14241,27 @@ function botSelfTest(){
     DB.logs=bak;
   })();
 
-  /* Adherencia. Mide plan cumplido, NO dias seguidos: una racha de dias castiga el
-     descanso, que forma parte del programa. Si alguien la cambia por eso, revienta. */
+  /* Contador del plan. Lo que se protege: que el total salga de TU plan (semanas
+     x dias) y que NO cuente los dias de un plan anterior — si los contara,
+     estrenarias un plan nuevo con el contador ya avanzado. */
   (function(){
-    if(!DAYS.length) return;
-    const bakD=DB.done, bakL=DB.logs, meta=DAYS.length;
+    if(!DAYS.length || !DB.profile) return;
+    const bakD=DB.done, bakL=DB.logs, bakW=DB.profile.weeks, bakC=DB.profile.createdAt;
     const f=n=>{ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
-    const marca=fs=>{ DB.done={}; DB.logs={}; fs.forEach(x=>DB.done[x]={t:true}); };
-    const sem=n=>Array.from({length:meta},(_,i)=>f(7*n+i));
-    marca([]);
-    ok(adherencia().pct===0 && adherencia().seguidas===0, 'sin nada hecho deberia dar cero');
-    marca(sem(1));
-    ok(adherencia().seguidas===1, 'una semana completa atras no cuenta como seguida');
-    marca([...sem(1),...sem(2)]);
-    ok(adherencia().seguidas===2, 'dos semanas completas no encadenan');
-    marca([...sem(1),...sem(3)]);
-    ok(adherencia().seguidas===1, 'la cadena no se corta con un hueco en medio');
-    marca([f(0)]);
-    ok(adherencia().hechos===1 && adherencia().pct===Math.round(100/meta), 'mal el porcentaje de la semana');
-    /* El lunes es el lunes: si lunesDe se desplaza, todas las semanas se parten mal. */
-    ok(new Date(lunesDe(today())+'T12:00:00Z').getUTCDay()===1, 'lunesDe no cae en lunes');
-    DB.done=bakD; DB.logs=bakL;
+    DB.logs={}; DB.done={};
+    DB.profile.weeks=33; DB.profile.createdAt=f(30);
+    ok(progresoPlan().total===33*DAYS.length, 'el total no son semanas x dias del plan');
+    ok(progresoPlan().hechos===0, 'sin nada hecho el contador no arranca en cero');
+    DB.done={[f(1)]:{a:true}, [f(2)]:{a:true}, [f(3)]:{a:true}};
+    ok(progresoPlan().hechos===3, 'no cuenta bien los dias entrenados');
+    /* Un dia ANTERIOR a crear el perfil es de otro plan: no puede sumar. */
+    DB.done[f(90)]={a:true};
+    ok(progresoPlan().hechos===3, 'esta contando dias de antes de crear el plan');
+    /* Y nunca puede pasarse del total, por muchos dias sueltos que haya. */
+    DB.profile.weeks=1; DB.done={};
+    for(let i=0;i<40;i++) DB.done[f(i)]={a:true};
+    ok(progresoPlan().hechos<=progresoPlan().total, 'el contador se pasa del total del plan');
+    DB.done=bakD; DB.logs=bakL; DB.profile.weeks=bakW; DB.profile.createdAt=bakC;
   })();
 
   /* Buscador de Progreso: sin acentos tiene que encontrar igual, y sin resultados
