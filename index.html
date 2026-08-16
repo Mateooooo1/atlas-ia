@@ -402,19 +402,29 @@ input[type=range]{width:100%;accent-color:var(--accent);height:var(--tap);margin
 .heat-rango{font-size:var(--t-xs);color:var(--muted);line-height:1.5;
   padding:var(--s2) 0 var(--s3);border-bottom:1px solid var(--line);margin-bottom:var(--s1)}
 .heat-rango b{color:var(--n-300)}
-/* Casilla con peso sugerido. El placeholder normal ("kg", "reps") es un rótulo y
-   va apagado; este es un DATO calculado, así que se distingue en color de acento
-   —tenue, para que siga leyéndose como sugerencia y no como valor escrito. */
-input.sug::placeholder{color:var(--accent);opacity:.62;font-weight:700}
-/* Barra de adherencia, bajo los chips de los días. */
-.adh{padding:var(--s2) var(--s4) var(--s3)}
-.adh-txt{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap;
-  font-size:var(--t-xs);color:var(--muted);margin-bottom:6px}
-.adh-txt b{font-size:var(--t-md)}
-.adh-sub{color:var(--n-600)}
-.adh-racha{margin-left:auto;color:var(--gold,var(--warn));font-weight:700}
-.adh-bar{height:5px;background:var(--n-800);border-radius:var(--rp);overflow:hidden}
-.adh-bar >i{display:block;height:100%;border-radius:var(--rp);transition:width .4s var(--ease,ease)}
+/* Casilla con peso sugerido. En verde de acento parecía un valor ya escrito y se
+   confundía con lo que tú habías tecleado —que va en blanco—. En gris translúcido
+   se lee como lo que es: una sugerencia que se borra al escribir encima. */
+input.sug::placeholder{color:var(--muted);opacity:.5;font-weight:400}
+/* La semana: fuego + entrenados/faltan + puntos. Una sola línea. */
+.adh{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+  font-size:var(--t-xs);color:var(--muted);margin:var(--s2) 0 var(--s1)}
+.adh-txt b{color:var(--txt);font-size:var(--t-sm)}
+.adh-fuego{font-size:16px;line-height:1;filter:grayscale(1);opacity:.35;
+  transition:filter .3s,opacity .3s}
+/* Solo arde cuando hay sesiones hechas. La animación es lenta y de poco
+   recorrido a propósito: un icono dando saltos al lado de los datos cansa a los
+   dos días y acaba leyéndose como ruido. */
+.adh-fuego.vivo{filter:none;opacity:1;animation:llama 2.4s ease-in-out infinite}
+@keyframes llama{
+  0%,100%{transform:scale(1) rotate(0deg)}
+  35%    {transform:scale(1.13) rotate(-4deg)}
+  70%    {transform:scale(1.05) rotate(3deg)}
+}
+@media (prefers-reduced-motion:reduce){ .adh-fuego.vivo{animation:none} }
+.adh-pts{display:inline-flex;gap:4px;margin-left:2px}
+.adh-pts i{width:7px;height:7px;border-radius:50%;background:var(--n-700);display:block}
+.adh-racha{margin-left:auto;color:var(--warn);font-weight:700}
 /* Botón de vídeo, dentro del modal de la foto del ejercicio. */
 .btn.vid{display:block;width:100%;margin:10px 0 0;text-align:center;text-decoration:none;
   line-height:var(--tap);padding:0}
@@ -1125,6 +1135,10 @@ input.sug::placeholder{color:var(--accent);opacity:.62;font-weight:700}
     </div>
     <div class="bar"><i id="dayBar"></i></div>
     <div class="barlbl" id="dayProg">0 de 0 ejercicios hechos hoy</div>
+    <!-- La semana, con el fuego. Va AQUI y no bajo los chips de los dias: alli
+         estaba dentro del <header sticky> y crecia la cabecera, que se comia el
+         principio de la lista de ejercicios. -->
+    <div id="adhSemana"></div>
     <div id="duoBar"></div>
     <div id="motorAviso"></div>
     <div id="exList"></div>
@@ -2358,20 +2372,30 @@ function adherencia(){
   }
   return {hechos, meta, pct, seguidas, completa:hechos>=meta};
 }
+/* El fuego a la izquierda y, al lado, entrenados y los que faltan. El porcentaje
+   se fue: "4 de 6, te faltan 2" se entiende sin traducir, un 67 % no.
+   El fuego solo se enciende -y se mueve- si de verdad hay algo que celebrar; con
+   la semana a cero se queda apagado, porque si siempre arde no significa nada. */
 function barraAdherencia(){
   if(!DB.profile || !DAYS.length) return '';
   const a=adherencia();
-  const col = a.completa ? 'var(--accent)' : (a.pct>=50 ? 'var(--accent2)' : 'var(--muted)');
+  const faltan=Math.max(0, a.meta-a.hechos);
+  const vivo = a.hechos>0;
+  const col = a.completa ? 'var(--accent)' : (a.hechos>0 ? 'var(--accent2)' : 'var(--n-700)');
+  const cola = a.completa
+    ? `<b style="color:var(--accent)">semana completa</b>`
+    : (faltan===1 ? `te falta <b>1</b>` : `te faltan <b>${faltan}</b>`);
   const racha = a.seguidas>0
-    ? `<span class="adh-racha">🔥 ${a.seguidas} semana${a.seguidas>1?'s':''} seguida${a.seguidas>1?'s':''}</span>`
-    : '';
+    ? `<span class="adh-racha">${a.seguidas} semana${a.seguidas>1?'s':''} seguida${a.seguidas>1?'s':''}</span>` : '';
+  /* Los puntos son la semana de un vistazo: encendidos los hechos, apagados los
+     que faltan. Con seis sesiones se leen mas rapido que cualquier numero. */
+  const puntos=Array.from({length:a.meta},(_,i)=>
+    `<i class="${i<a.hechos?'on':''}" style="${i<a.hechos?`background:${col}`:''}"></i>`).join('');
   return `<div class="adh">
-    <div class="adh-txt">
-      <b style="color:${col}">${a.pct}%</b> de tu semana
-      <span class="adh-sub">${a.hechos} de ${a.meta} sesiones</span>
-      ${racha}
-    </div>
-    <div class="adh-bar"><i style="width:${a.pct}%;background:${col}"></i></div>
+    <span class="adh-fuego ${vivo?'vivo':''}" aria-hidden="true">🔥</span>
+    <span class="adh-txt"><b>${a.hechos}</b> de ${a.meta} · ${cola}</span>
+    <span class="adh-pts">${puntos}</span>
+    ${racha}
   </div>`;
 }
 
@@ -2387,11 +2411,8 @@ function renderDayChips(){
       return `<div class="chip" style="opacity:.6" onclick="askConfirm('Días de descanso: <b>${rest.join(', ')}</b>.\\n\\nRecuperación: sueño 7–9 h, proteína 1,6–2,2 g/kg/día e hidratación. Es cuando el cuerpo se adapta y crece.','Entendido','Descanso')">${lbl}</div>`;
     })()
     + `<div class="chip chip-edit" onclick="openDias()">Cambiar días</div>`;
-  /* Justo debajo de los días, que es donde miras al abrir la app. Se borra la
-     anterior primero: renderDayChips se llama en cada cambio de día, y sin esto
-     se iba apilando una barra nueva debajo de la otra. */
-  document.querySelectorAll('.adh').forEach(x=>x.remove());
-  $("#days").insertAdjacentHTML('afterend', barraAdherencia());
+  /* Va en su propio hueco del cuerpo, no dentro del header sticky. */
+  const hueco=$("#adhSemana"); if(hueco) hueco.innerHTML=barraAdherencia();
   const act=$("#days").querySelector('.chip.on'); if(act) act.scrollIntoView({inline:'center',block:'nearest'});
 }
 function setDay(i){ curIdx=i; renderDayChips(); renderDay(); if(!$("#v-day").classList.contains("on")) tab('day'); window.scrollTo(0,0); }
@@ -2556,7 +2577,7 @@ function renderDay(){
             <span class="n">Serie ${k+1}</span>
             <input inputmode="decimal" placeholder="${phPeso(e)}" value="" data-ex="${e.id}" data-k="${k}" data-f="w"${sug?' class="sug"':''}>
             <span class="u">${uLbl||'kg'}</span>
-            <input inputmode="numeric" placeholder="${phReps(e)}" value="" data-ex="${e.id}" data-k="${k}" data-f="r"${sug?' class="sug"':''}>
+            <input inputmode="numeric" placeholder="${phReps(e,k)}" value="" data-ex="${e.id}" data-k="${k}" data-f="r"${sug?' class="sug"':''}>
             <span class="u">rp</span>
           </div>`;
         }).join("");
@@ -4141,7 +4162,12 @@ function sugerenciaSerie(e){
   let kg=w;
   if(minR>=rr.high)      kg = w+salto;              // cerraste el rango: sube
   else if(maxR<rr.low)   kg = Math.max(0, w-salto); // te quedaste corto: baja
-  return {kg:+kg.toFixed(2), reps:rr.low, bw};
+  /* Las reps que se sugieren son LAS QUE HICISTE, serie por serie, no el minimo
+     del rango. Poner el minimo era confuso: si la semana pasada cerraste 10, 10,
+     12, 10, ver un "6" ahi no es una sugerencia, es un numero que no viene de
+     ningun sitio. Con tus propias reps delante sabes si repetir o sumar una. */
+  const porSerie=(last.sets||[]).map(s=>+s.r||0);
+  return {kg:+kg.toFixed(2), reps:rr.low, porSerie, bw};
 }
 /* El texto que se ve en gris dentro de la casilla. */
 function phPeso(e){
@@ -4149,9 +4175,16 @@ function phPeso(e){
   if(!s || s.kg==null) return e.unit==='seg' ? 'seg' : (esBW(e) ? 'lastre' : 'kg');
   return String(s.kg).replace(/\.00$/,'');
 }
-function phReps(e){
+/* k = numero de serie (0..n). Si esa serie existia la ultima vez, se enseña lo
+   que hiciste EN ESA serie; si esta vez hay mas series que la anterior -semana de
+   carga, por ejemplo- las de mas caen a la ultima que si tienes. */
+function phReps(e, k){
   const s=sugerenciaSerie(e);
-  return s ? String(s.reps) : 'reps';
+  if(!s) return 'reps';
+  const ps=s.porSerie||[];
+  if(!ps.length) return String(s.reps);
+  const v = ps[k] || ps[ps.length-1];
+  return v>0 ? String(v) : String(s.reps);
 }
 function watermarkFor(e){
   const a=progressAdvice(e);
@@ -14231,7 +14264,13 @@ function botSelfTest(){
     ok(+phPeso(e)===50, 'dentro del rango deberia mantener el peso');
     con(50, Math.max(1, rr.low-2));
     ok(+phPeso(e)<50, 'quedandote corto deberia sugerir MENOS peso');
-    ok(phReps(e)===String(rr.low), 'las reps sugeridas no son el minimo del rango');
+    /* Las reps que se enseñan son LAS QUE HICISTE en esa serie, no el minimo del
+       rango: ver un numero que no salio de tu historial confunde mas que ayuda. */
+    DB.logs={[k]:[{date:f(3), sets:[{w:'40',r:'10'},{w:'40',r:'10'},{w:'40',r:'12'},{w:'40',r:'9'}]}]};
+    ok(phReps(e,0)==='10' && phReps(e,2)==='12' && phReps(e,3)==='9',
+       'las reps sugeridas no son las de esa misma serie la vez anterior');
+    /* Si esta semana hay MAS series que la anterior, las de mas caen a la ultima. */
+    ok(phReps(e,7)==='9', 'una serie extra no cae a la ultima registrada');
     DB.logs=bak;
   })();
 
