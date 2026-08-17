@@ -207,6 +207,24 @@ header{position:sticky;top:0;z-index:20;
 /* Deslizar a la izquierda para quitar. La tarjeta se tiñe de rojo y saca la
    papelera por la derecha, que es de donde viene el dedo. Es solo el aviso: lo
    que borra es el "Sí" del modal, nunca el gesto suelto. */
+/* Estadisticas */
+.adh{cursor:pointer}
+.adh-hoy{font-size:var(--t-xs);color:var(--muted);margin-left:6px;white-space:nowrap}
+.statbar{position:relative;height:26px;background:var(--bg2);border-radius:999px;overflow:hidden;margin:2px 0 8px}
+.statbar i{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .5s ease}
+.statbar em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-style:normal;font-weight:700;font-size:var(--t-sm);color:var(--txt);
+  text-shadow:0 1px 3px rgba(0,0,0,.55)}
+.statsub{margin:0 0 14px;font-size:var(--t-xs);color:var(--muted)}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.stat{background:var(--bg2);border-radius:var(--r3);padding:10px 12px;text-align:center}
+.stat b{display:block;font-size:var(--t-lg);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+.stat span{display:block;font-size:11.5px;color:var(--muted);line-height:1.3;margin-top:2px}
+.statfila{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:var(--t-sm)}
+.statfila>span{flex:0 0 108px;color:var(--muted)}
+.statfila>div{flex:1;min-width:0;line-height:1.45}
+.statfila small{color:var(--muted);font-size:var(--t-xs)}
+
 /* Atlas Pro */
 .propack{display:flex;gap:10px;margin:4px 0 14px}
 .proplan{flex:1;position:relative;background:var(--bg2);border:1px solid var(--line);
@@ -222,6 +240,12 @@ header{position:sticky;top:0;z-index:20;
 .prolista{margin:0;padding-left:18px;color:var(--muted);font-size:var(--t-sm);line-height:1.75}
 .proya{background:var(--acc-ghost);border:1px solid var(--acc-line);border-radius:var(--r3);
   padding:10px 12px;margin-bottom:12px;color:var(--accent);font-weight:600;font-size:var(--t-sm)}
+/* SIN ESTO EL GESTO NO FUNCIONA EN EL MOVIL. Por defecto el navegador se queda
+   con el arrastre para hacer scroll y, en cuanto detecta movimiento, dispara
+   pointercancel: el dedo llegaba al final y ya no habia gesto que medir. Con
+   pan-y le decimos "el desplazamiento vertical es tuyo, el horizontal es mio",
+   que es justo el reparto que hace falta. */
+.ex{touch-action:pan-y}
 .ex.porBorrar{border-color:var(--bad);background:rgba(255,107,107,.22);position:relative}
 .ex.porBorrar>*{opacity:.3}
 .ex.porBorrar:after{content:"";position:absolute;top:0;right:0;bottom:0;width:70px;
@@ -1517,6 +1541,15 @@ input.sug::placeholder{color:var(--muted);opacity:.5;font-weight:400}
   </div>
 </div>
 
+<!--  Estadisticas del plan. Se abre tocando el fuego o la fila de dias. -->
+<div class="modal" id="statsModal" style="z-index:97">
+  <div class="box" style="max-width:440px;text-align:left">
+    <h3 style="margin-top:0">Tu plan</h3>
+    <div id="statsBody"></div>
+    <button class="btn ghost" style="width:100%;margin-top:14px" onclick="cerrarStats()">Cerrar</button>
+  </div>
+</div>
+
 <!--  Atlas Pro. El boton de pagar NO cobra todavia: sin Facturacion de Google Play
       no se puede cobrar por esto en Android, y ademas la ficha enviada a revision
       declara que no hay contenido de pago. Hasta que las dos cosas cambien, el
@@ -2430,20 +2463,42 @@ let curIdx = (new Date().getDay() in dayByWeekday) ? dayByWeekday[new Date().get
 /* ===================== RENDER DÍAS ===================== */
 const $ = s=>document.querySelector(s);
 /* =====  DIAS ENTRENADOS  =====
-   Un dia cuenta si ese dia marcaste ALGO: un ejercicio hecho o una serie
-   registrada. Exigir el dia entero haria que faltar a un ejercicio te borrara
-   el dia, y el contador pasaria de motivar a fastidiar. */
+   Una casilla del plan se gana TERMINANDO el dia, no tocandolo. Antes bastaba
+   con marcar un ejercicio y el contador ya subia: haciendo una serie suelta
+   pasabas de "Dia 9" a "Dia 10" sin haber entrenado.
+
+   Un dia marcado SOLO como descanso tampoco cuenta. La racha (rachaDias) SI lo
+   cuenta, y a proposito: son dos cosas distintas y por eso lleva su propia
+   cuenta.
+
+   No hace falta guardar nada nuevo: la marca de cada ejercicio ya lleva delante
+   el dia al que pertenece ("g0|press_banca"), asi que se agrupa por ese prefijo
+   y se compara con cuantos ejercicios tiene ese dia en el plan. Funciona hacia
+   atras con los dias que ya estaban registrados. */
+function diaDelPlan(clave){
+  const i=String(clave).indexOf('|');
+  return i<0 ? null : String(clave).slice(0,i);
+}
+function diaCompletado(fecha){
+  const marcas=Object.keys((DB.done||{})[fecha]||{}).filter(k=>k!==claveDescanso());
+  if(!marcas.length) return false;
+  const porDia={};
+  marcas.forEach(k=>{ const d=diaDelPlan(k); if(d!==null) porDia[d]=(porDia[d]||0)+1; });
+  /* Basta con que UNA sesion del dia este entera: si entrenaste dos veces el
+     mismo dia, con una terminada ya cuenta. */
+  return Object.keys(porDia).some(id=>{
+    const dia=(DAYS||[]).find(d=>String(d.id)===id);
+    return !!dia && dia.ex.length>0 && porDia[id]>=dia.ex.length;
+  });
+}
 function diasEntrenados(){
-  /* Un dia marcado SOLO como descanso no es un dia entrenado. Contaba, y el
-     "Dia X de N" corria mas rapido que el plan: con 4 dias a la semana y 3 de
-     descanso marcados, el contador se comia 7 casillas por semana en vez de 4 y
-     llegaba al final del plan casi el doble de rapido.
-     La racha (rachaDias) SI cuenta el descanso, y a proposito: son dos cosas
-     distintas y por eso lleva su propia cuenta. */
-  const s=new Set(Object.keys(DB.done||{}).filter(d=>
-    Object.keys(DB.done[d]||{}).some(k=>k!==claveDescanso())));
-  Object.values(DB.logs||{}).flat().forEach(x=>{ if(x && x.date) s.add(x.date); });
-  return s;
+  return new Set(Object.keys(DB.done||{}).filter(diaCompletado));
+}
+/* Cuanto llevas del dia de HOY, para poder enseñarlo sin que cuente todavia. */
+function avanceDeHoy(){
+  const d=DAYS[curIdx];
+  if(!d || !d.ex.length) return {hechos:0, total:0};
+  return {hechos:Math.min(dayDoneCount(), d.ex.length), total:d.ex.length};
 }
 /* =====  EL CONTADOR DEL PLAN ENTERO  =====
    "Día 4 de 132", no "4 de 6 esta semana". El total sale de TU plan: las semanas
@@ -2468,11 +2523,98 @@ function barraAdherencia(){
   if(!DB.profile || !DAYS.length) return '';
   const g=progresoPlan();
   const vivo=g.hechos>0;
-  return `<div class="adh" title="${g.semanas} semanas × ${g.porSemana} días">
+  const hoy=avanceDeHoy();
+  /* Si el dia esta empezado pero sin terminar se dice, para que no parezca que
+     no ha contado nada: la casilla se gana al acabar, y mientras tanto se ve
+     cuanto falta. */
+  const parcial = (hoy.total && hoy.hechos>0 && hoy.hechos<hoy.total)
+    ? `<span class="adh-hoy">hoy ${hoy.hechos}/${hoy.total}</span>` : '';
+  return `<div class="adh" onclick="abrirStats()" role="button" tabindex="0"
+       title="Toca para ver tus estadísticas">
     <span class="adh-fuego ${vivo?'vivo':''}" aria-hidden="true">🔥</span>
     <span class="adh-txt">Día <b>${g.hechos}</b> de ${g.total}</span>
+    ${parcial}
   </div>`;
 }
+
+/* =====  ESTADISTICAS DEL PLAN  =====
+   Se abre tocando el fuego o la fila de dias. Todo sale de lo que ya hay
+   guardado: no se apunta ningun dato nuevo para esto. */
+function statsPlan(){
+  const g=progresoPlan(), p=DB.profile||{};
+  const dias=[...diasEntrenados()].filter(d=>!p.createdAt || d>=p.createdAt).sort();
+  const pct = g.total ? Math.round(g.hechos/g.total*100) : 0;
+
+  /* Series y kilos movidos: la carga por serie es peso x repeticiones, y las de
+     peso corporal no suman kilos porque no hay peso que apuntar. */
+  let series=0, kilos=0;
+  Object.values(DB.logs||{}).flat().forEach(l=>{
+    if(!l || !Array.isArray(l.sets)) return;
+    if(p.createdAt && l.date && l.date < p.createdAt) return;
+    [...(l.sets||[]), ...(l.sets2||[])].forEach(s=>{
+      if(!s) return;
+      series++;
+      const w=parseFloat(s.w)||0, r=parseFloat(s.r)||0;
+      if(w>0 && r>0) kilos += w*r;
+    });
+  });
+
+  /* Ritmo real contra el previsto. Las semanas transcurridas salen de createdAt,
+     no de cuantas veces abriste la app. */
+  const d0 = p.createdAt ? new Date(p.createdAt+'T12:00:00Z') : null;
+  const semanasPasadas = d0 ? Math.max(1, Math.floor((new Date(today()+'T12:00:00Z')-d0)/(7*864e5))+1) : 1;
+  const previstos = Math.min(g.total, semanasPasadas*g.porSemana);
+  const ritmo = +(g.hechos/semanasPasadas).toFixed(1);
+
+  /* Cuando acabaria el plan al ritmo REAL, no al de papel. */
+  let fechaFin=null;
+  if(ritmo>0 && g.hechos<g.total){
+    const semanasQueFaltan=Math.ceil((g.total-g.hechos)/ritmo);
+    const f=new Date(today()+'T12:00:00Z'); f.setUTCDate(f.getUTCDate()+semanasQueFaltan*7);
+    fechaFin=f.toISOString().slice(0,10);
+  }
+  return {...g, pct, dias, series, kilos:Math.round(kilos), semanasPasadas,
+          previstos, ritmo, fechaFin, racha:(typeof rachaDias==='function'?rachaDias():0)};
+}
+
+function abrirStats(){
+  const s=statsPlan();
+  const dif = s.hechos - s.previstos;
+  const ritmoTxt = dif>=0
+    ? `<b style="color:var(--accent)">${dif===0?'justo al día':`${dif} día${dif===1?'':'s'} por delante`}</b>`
+    : `<b style="color:var(--warn)">${-dif} día${dif===-1?'':'s'} por detrás</b>`;
+  const fmt = n => n.toLocaleString('es-ES');
+  const tile=(v,l)=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`;
+
+  $("#statsBody").innerHTML = `
+    <div class="statbar" aria-label="${s.pct}% del plan">
+      <i style="width:${s.pct}%"></i>
+      <em>${s.pct}%</em>
+    </div>
+    <p class="statsub">Día <b>${s.hechos}</b> de ${s.total} · ${s.semanas} semanas × ${s.porSemana} días</p>
+
+    <div class="statgrid">
+      ${tile(fmt(s.series), 'series registradas')}
+      ${tile(s.kilos>=1000 ? fmt(Math.round(s.kilos/1000))+' t' : fmt(s.kilos)+' kg', 'peso total movido')}
+      ${tile(s.racha, 'días de racha')}
+      ${tile(s.ritmo, 'días por semana')}
+    </div>
+
+    <div class="statfila"><span>Ritmo</span><div>${ritmoTxt}<br>
+      <small>llevas ${s.hechos} y tocaban ${s.previstos} a estas alturas</small></div></div>
+    ${s.fechaFin
+      ? `<div class="statfila"><span>Al ritmo de ahora</span><div><b>${s.fechaFin}</b><br>
+          <small>terminarías el plan en esa fecha</small></div></div>`
+      : (s.hechos>=s.total
+          ? `<div class="statfila"><span>Plan</span><div><b style="color:var(--accent)">Terminado</b></div></div>`
+          : `<div class="statfila"><span>Al ritmo de ahora</span><div><small>necesito al menos un día terminado para estimarlo</small></div></div>`)}
+    ${s.dias.length
+      ? `<div class="statfila"><span>Primero / último</span><div><b>${s.dias[0]}</b> → <b>${s.dias[s.dias.length-1]}</b></div></div>`
+      : `<div class="statfila"><span>Aún sin días</span><div><small>una casilla se gana al terminar TODOS los ejercicios del día</small></div></div>`}
+  `;
+  $("#statsModal").classList.add("on");
+}
+function cerrarStats(){ $("#statsModal").classList.remove("on"); }
 
 function renderDayChips(){
   const wd = new Date().getDay();
@@ -2954,7 +3096,37 @@ function swipeInit(){
     pedirQuitarEx(s.card);
   });
 
-  lista.addEventListener('pointercancel', ()=>{ _swipe=null; }, {passive:true});
+  /* OJO: pointercancel NO puede limpiar el gesto sin mas. En el movil se dispara
+     en cuanto el navegador decide que el arrastre es suyo, y eso mataba el
+     deslizamiento antes de que el dedo levantara: en el ordenador funcionaba y
+     en el telefono no pasaba nada. Solo se cancela si el dedo iba sobre todo en
+     VERTICAL, que ahi si es scroll de verdad. */
+  lista.addEventListener('pointercancel', ev=>{
+    const s=_swipe;
+    if(!s) return;
+    const dx=ev.clientX-s.x, dy=ev.clientY-s.y;
+    if(Math.abs(dy) > Math.abs(dx)) _swipe=null;
+  }, {passive:true});
+
+  /* Respaldo con eventos tactiles. Hay WebViews donde los pointer events llegan
+     incompletos o directamente no llegan tras un pointercancel; touchend si. */
+  lista.addEventListener('touchstart', ev=>{
+    if(ev.target.closest('input,button,textarea,select,a')) return;
+    const card = ev.target.closest('.ex');
+    if(!card || card.classList.contains('porBorrar')) return;
+    const t=ev.touches[0]; if(!t) return;
+    _swipe = {x:t.clientX, y:t.clientY, card};
+  }, {passive:true});
+
+  lista.addEventListener('touchend', ev=>{
+    const s=_swipe; _swipe=null;
+    if(!s) return;
+    const t=ev.changedTouches && ev.changedTouches[0]; if(!t) return;
+    const dx=t.clientX-s.x, dy=t.clientY-s.y;
+    if(dx > -SWIPE_MIN) return;
+    if(Math.abs(dx) < Math.abs(dy)*1.5) return;
+    pedirQuitarEx(s.card);
+  }, {passive:true});
 }
 
 async function pedirQuitarEx(card){
@@ -14642,14 +14814,28 @@ function botSelfTest(){
     DB.profile.weeks=33; DB.profile.createdAt=f(30);
     ok(progresoPlan().total===33*DAYS.length, 'el total no son semanas x dias del plan');
     ok(progresoPlan().hechos===0, 'sin nada hecho el contador no arranca en cero');
-    DB.done={[f(1)]:{a:true}, [f(2)]:{a:true}, [f(3)]:{a:true}};
-    ok(progresoPlan().hechos===3, 'no cuenta bien los dias entrenados');
+    /* LA CASILLA SE GANA TERMINANDO EL DIA. Marcar un ejercicio suelto ya no
+       cuenta: antes bastaba con eso y hacer una serie te subia de "Dia 9" a
+       "Dia 10" sin haber entrenado. Por eso el dia de prueba se marca ENTERO,
+       con la misma clave que usa la pantalla (doneKey), y ademas se comprueba
+       que uno a medias NO suma. */
+    const dia=DAYS[0], entero=()=>{ const m={}; dia.ex.forEach(e=>m[doneKey(dia,e.id)]=true); return m; };
+    DB.done={[f(1)]:entero(), [f(2)]:entero(), [f(3)]:entero()};
+    ok(progresoPlan().hechos===3, 'no cuenta bien los dias TERMINADOS');
+    if(dia.ex.length>1){
+      DB.done[f(4)]={[doneKey(dia, dia.ex[0].id)]:true};        // solo uno: a medias
+      ok(progresoPlan().hechos===3, 'un dia a medias esta sumando al contador');
+      delete DB.done[f(4)];
+    }
     /* Un dia ANTERIOR a crear el perfil es de otro plan: no puede sumar. */
-    DB.done[f(90)]={a:true};
+    DB.done[f(90)]=entero();
     ok(progresoPlan().hechos===3, 'esta contando dias de antes de crear el plan');
-    /* Y nunca puede pasarse del total, por muchos dias sueltos que haya. */
+    /* El descanso tampoco: tiene su propia cuenta, la racha. */
+    DB.done[f(5)]={[claveDescanso()]:true};
+    ok(progresoPlan().hechos===3, 'un dia de descanso esta sumando al contador');
+    /* Y nunca puede pasarse del total, por muchos dias que haya. */
     DB.profile.weeks=1; DB.done={};
-    for(let i=0;i<40;i++) DB.done[f(i)]={a:true};
+    for(let i=0;i<40;i++) DB.done[f(i)]=entero();
     ok(progresoPlan().hechos<=progresoPlan().total, 'el contador se pasa del total del plan');
     DB.done=bakD; DB.logs=bakL; DB.profile.weeks=bakW; DB.profile.createdAt=bakC;
   })();
@@ -15601,6 +15787,7 @@ addEventListener('hashchange', irPorHash);
 const _CAPAS = [
   ['askModal',     ()=>askResolve(false)],
   ['proModal',     ()=>cerrarPro()],
+  ['statsModal',   ()=>cerrarStats()],
   ['plateModal',   ()=>$("#plateModal").classList.remove("on")],
   ['bkModal',      ()=>$("#bkModal").classList.remove("on")],
   ['botModal',     ()=>botCerrar()],
