@@ -63,12 +63,42 @@ Los cuatro últimos los introduje yo el mismo día. El primero venía de antes.
 
 ---
 
-## B · Seguridad — **candidatos SIN verificar**
+## B · Seguridad — **relanzada y completa**
 
-10 superficies, **41 hallazgos**. El panel de refutación estaba diseñado con
-3 escépticos por hallazgo (123 pasadas): **solo corrieron 38**, y la síntesis
-final murió. Conclusión honesta: **esto no es una lista de vulnerabilidades
-confirmadas.** Cada punto hay que reproducirlo antes de tocar nada.
+Segunda pasada (17 ago): 10 superficies · 92 agentes · **0 errores** ·
+81 refutaciones previstas, **81 corridas**, `panelIncompleto: 0`. 27 candidatos →
+**23 sobrevivieron** al panel de tres escépticos → 10 problemas tras fusionar.
+
+**Arreglados (commit `2abe148`)** — los cuatro marcados «ahora» más uno de
+«pronto»:
+
+| | |
+| --- | --- |
+| Nombre de perfil crudo como clave → **la app dejaba de guardar en silencio** | `generateFromOnboarding`, `nubeBajar` |
+| `planLimpio` ponía `wd:0` (domingo) → «hoy descansas» 6 días de 7 | `planLimpio` |
+| `dbSaneado` validaba el tipo y dejaba el contenido crudo → XSS con robo de sesión | `dbSaneado` |
+| `allowBackup="true"` → fotos, DB y token en la copia de Google | manifiesto + `configurar_android.js` |
+| Los autotests corrían en el APK en cada arranque | la puerta `localhost` |
+
+### Lo que queda
+
+- **Pronto ·** Las fotos no se borran de Supabase Storage: ni al borrar la foto,
+  ni al borrar el atleta, ni al borrar la cuenta. `nubeBorrarCuenta` promete
+  borrarlas y solo toca la tabla. Contradice `privacidad.html:118` y el
+  requisito de borrado de Play. Solo afecta a quien encendió el interruptor.
+- **Pronto ·** Cambiar de atleta no reinicia el asistente.
+- **Algún día ·** El módulo de `esm.run` se ejecuta antes de aceptar el Modo IA.
+- **Algún día ·** `MainActivity` en `singleTask` sin `taskAffinity`, y
+  `play-services-ads` con versión dinámica `24.9.+`.
+- **No hace falta ·** Un perfil llamado `__proto__` se guarda y no sale en la
+  lista.
+
+### Nota sobre la primera pasada
+
+La del 17 de agosto por la mañana quedó inservible: 41 hallazgos pedían 123
+refutaciones y solo cupieron 38 antes de agotarse la sesión. Se relanzó
+limitando a 4 hallazgos por superficie, y con eso el panel cupo entero. La
+lección: más hallazgos no es mejor si no se pueden verificar.
 
 Dicho eso, los que más pinta tienen —y varios los corrobora la batería A—:
 
