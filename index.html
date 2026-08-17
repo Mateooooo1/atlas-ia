@@ -2263,6 +2263,15 @@ async function deleteUser(name, ev){
   // borra sus fotos de IndexedDB
   try{
     const raw=JSON.parse(localStorage.getItem("recomp_v1_"+name)||"{}");
+    /* Y las de la nube, con sus rutas todavia a mano: en cuanto se borra la
+       clave recomp_v1_<name> se van los f.nube y el objeto del bucket queda
+       huerfano, sin ningun puntero desde la app. Es de otro perfil, asi que las
+       rutas hay que sacarlas de SU blob, no de DB.photos. */
+    const suyas=(raw.photos||[]).filter(p=>p&&p.nube);
+    if(suyas.length && !(await fotosBorrarRutas(suyas.map(p=>p.nube)))){
+      toast('No se pudieron borrar sus fotos de la nube · inténtalo con conexión');
+      return;
+    }
     for(const p of (raw.photos||[])) await fotoBorrarLocal(p.id);
   }catch(e){}
   localStorage.removeItem("recomp_v1_"+name);
@@ -6005,6 +6014,11 @@ async function purgarFotos(){
     `Exporta antes tus datos si quieres conservarlas: el backup en JSON las incluye. Esto no se puede deshacer.`,
     "Sí, borrar antiguas","Liberar espacio");
   if(!ok) return;
+  /* La nube primero, con las rutas todavia en la mano. Si falla, no se borra
+     nada: mejor seguir ocupando espacio que dejar fotos del cuerpo huerfanas en
+     un servidor sin forma de alcanzarlas. */
+  const {fallo}=await fotosBorrarMetas(sobran);
+  if(fallo){ toast('No se pudo borrar de la nube · inténtalo con conexión'); return; }
   for(const f of sobran){ try{ await fotoBorrarLocal(f.id); }catch(e){} }
   const quedan=new Set(fotos.slice(-3).map(f=>f.id));
   DB.photos=(DB.photos||[]).filter(f=>quedan.has(f.id));
@@ -6049,8 +6063,13 @@ async function renderCompare(){
   $("#cmpOut").innerHTML=pa+pb;
 }
 function deletePhoto(id){
-  askConfirm("¿Borrar esta foto de progreso? No se puede deshacer.","Sí, borrar","Borrar foto").then(ok=>{
+  askConfirm("¿Borrar esta foto de progreso? No se puede deshacer.","Sí, borrar","Borrar foto").then(async ok=>{
     if(!ok) return;
+    /* La copia de la nube PRIMERO, mientras todavia tenemos su ruta: al filtrar
+       DB.photos se va f.nube, que es el unico puntero al objeto del bucket. */
+    const meta=(DB.photos||[]).find(p=>p.id===id);
+    const {fallo}=await fotosBorrarMetas(meta?[meta]:[]);
+    if(fallo){ toast('No se pudo borrar de la nube · inténtalo con conexión'); refreshPhotoUI(); return; }
     DB.photos=(DB.photos||[]).filter(p=>p.id!==id); save();
     fotoBorrarLocal(id).finally(refreshPhotoUI);
   });
@@ -15032,7 +15051,16 @@ async function nubeBorrarCuenta(){
   const msg=$("#nbMsg"); if(msg) msg.innerHTML='Borrando&hellip;';
   try{
     /* Lo que el usuario puede borrar por si mismo, se borra primero: si la funcion
-       del servidor no estuviera desplegada, al menos los datos desaparecen. */
+       del servidor no estuviera desplegada, al menos los datos desaparecen.
+       LAS FOTOS, ANTES QUE LA TABLA. El paso 1 promete por escrito borrar "las
+       fotos de progreso guardadas en la nube" y esto solo hacia DELETE sobre
+       /atletas: las imagenes del cuerpo se quedaban en el bucket despues de un
+       borrado confirmado, contra lo que dice privacidad.html y contra el
+       requisito de borrado de datos de Play.
+       Se vacia la CARPETA entera por prefijo, no DB.photos: esa lista solo
+       conoce las del perfil activo, y en la cuenta puede haber varios atletas. */
+    let fotosFuera=true;
+    try{ fotosFuera = await fotosBorrarCarpeta(); }catch(e){ fotosFuera=false; }
     try{ await nubeFetch('/rest/v1/atletas?user_id=eq.'+(_nubeSes.user||{}).id, {method:'DELETE'}); }catch(e){}
 
     const r=await fetch(_nube.url.replace(/\/+$/,'')+'/functions/v1/borrar-cuenta', {
@@ -15046,12 +15074,23 @@ async function nubeBorrarCuenta(){
         : (res.error||('HTTP '+r.status));
       nubeOlvidaLocal();
       const m2=$("#nbMsg");
+      /* Si las fotos no se pudieron borrar hay que DECIRLO. Antes el mensaje
+         daba por hecho que "tus datos se han borrado" pasara lo que pasara. */
       if(m2) m2.innerHTML=`Tus datos se han borrado, pero la cuenta de acceso sigue existiendo: `
-        + `<b style="color:var(--warn)">${botEsc(falta)}</b>.`;
+        + `<b style="color:var(--warn)">${botEsc(falta)}</b>.`
+        + (fotosFuera?'':`<br><br><b style="color:var(--warn)">Las fotos de la nube no se pudieron borrar.</b> `
+           + `Vuelve a intentarlo con conexión, o escribe a emnovag@gmail.com.`);
       toast('Datos borrados, cuenta pendiente');
       return;
     }
     nubeOlvidaLocal();
+    if(!fotosFuera){
+      const m4=$("#nbMsg");
+      if(m4) m4.innerHTML=`Cuenta borrada, pero <b style="color:var(--warn)">las fotos de la nube no se pudieron borrar</b>. `
+        + `Escribe a emnovag@gmail.com y se borran a mano.`;
+      toast('Cuenta borrada · fotos pendientes');
+      return;
+    }
     toast('Cuenta borrada');
   }catch(e){
     const m3=$("#nbMsg");
@@ -15239,21 +15278,76 @@ async function fotosSincronizar(avisar){
   return c;
 }
 
-async function fotosBorrarDeNube(){
-  const conNube = (DB.photos || []).filter(f => f.nube);
-  if(!conNube.length) return 0;
-  const rutas = conNube.map(f => f.nube);
+/* =====  BORRAR DE VERDAD DEL BUCKET  =====
+   El unico DELETE contra Storage vivia dentro de fotosBorrarDeNube, y solo se
+   llegaba a el APAGANDO el interruptor. Borrar una foto, purgar las antiguas o
+   borrar un atleta tiraban la metadata —y con ella f.nube, que es el UNICO
+   puntero al objeto—, asi que la foto se quedaba en la nube y ya no habia forma
+   de alcanzarla desde la app. Y nubeBorrarCuenta prometia por escrito borrar
+   "las fotos de progreso guardadas en la nube" y solo tocaba la tabla.
+
+   Ademas no se miraba r.ok: sin red o con un 4xx se tragaba el error, borraba
+   f.nube igual y cantaba "N fotos borradas". El puntero desaparecia y la foto
+   seguia ahi.
+
+   Ahora hay UNA funcion que borra y dice la verdad, y los cuatro caminos pasan
+   por ella. Devuelve false si no se pudo: quien llama decide, pero ya no puede
+   creerse que se borro cuando no. */
+async function fotosBorrarRutas(rutas){
+  const lista = (rutas || []).filter(Boolean);
+  if(!lista.length) return true;
+  if(!nubeDentro()) return false;
   try{
-    await fetch(_fotoBase() + FOTOS_BUCKET, {
+    const r = await fetch(_fotoBase() + FOTOS_BUCKET, {
       method: 'DELETE',
       headers: { apikey:_nube.key, Authorization:'Bearer ' + _nubeSes.access_token,
                  'Content-Type':'application/json' },
-      body: JSON.stringify({ prefixes: rutas })
+      body: JSON.stringify({ prefixes: lista })
     });
-  }catch(e){}
-  conNube.forEach(f => { delete f.nube; });
+    return r.ok;
+  }catch(e){ return false; }
+}
+
+/* Borra de la nube las fotos de una lista de metadatos y limpia el puntero SOLO
+   de las que se fueron. Si falla, el puntero se queda: en la siguiente
+   sincronizacion se vuelve a intentar, en vez de quedar huerfanas para siempre. */
+async function fotosBorrarMetas(metas){
+  const conNube = (metas || []).filter(f => f && f.nube);
+  if(!conNube.length) return {borradas:0, fallo:false};
+  const ok = await fotosBorrarRutas(conNube.map(f => f.nube));
+  if(ok) conNube.forEach(f => { delete f.nube; });
+  return {borradas: ok ? conNube.length : 0, fallo: !ok};
+}
+
+async function fotosBorrarDeNube(){
+  const conNube = (DB.photos || []).filter(f => f.nube);
+  if(!conNube.length) return 0;
+  const {borradas, fallo} = await fotosBorrarMetas(conNube);
   save();
-  return rutas.length;
+  if(fallo) throw new Error('no se pudieron borrar de la nube');
+  return borradas;
+}
+
+/* Vacia la carpeta ENTERA del usuario en el bucket. Hace falta para el borrado
+   de cuenta: DB.photos solo conoce las del perfil activo, y en la carpeta estan
+   las de todos los atletas de la cuenta. Se listan y se borran por prefijo. */
+async function fotosBorrarCarpeta(){
+  if(!nubeDentro()) return false;
+  const uid = (_nubeSes && _nubeSes.user && _nubeSes.user.id) || '';
+  if(!uid) return false;
+  try{
+    const r = await fetch(_fotoBase().replace('/object/','/object/list/') + FOTOS_BUCKET, {
+      method:'POST',
+      headers:{ apikey:_nube.key, Authorization:'Bearer ' + _nubeSes.access_token,
+                'Content-Type':'application/json' },
+      body: JSON.stringify({ prefix: uid, limit: 1000 })
+    });
+    if(!r.ok) return false;
+    const objetos = await r.json();
+    const rutas = (Array.isArray(objetos)?objetos:[]).map(o => uid + '/' + o.name).filter(Boolean);
+    if(!rutas.length) return true;
+    return await fotosBorrarRutas(rutas);
+  }catch(e){ return false; }
 }
 
 async function fotosToggle(){
