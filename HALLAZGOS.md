@@ -1,19 +1,21 @@
 # Lo que encontraron los agentes · 17 ago 2026
 
-Dos baterías en paralelo sobre `atlas_pwa/index.html` y `atlas_android/`.
-Las dos se quedaron **a medias por límite de sesión**, así que hay que leer los
-números con cuidado. Está anotado en cada sitio.
+Dos baterías sobre `atlas_pwa/index.html` y `atlas_android/`: una de
+funcionamiento y otra de seguridad. Cada hallazgo pasó por agentes independientes
+cuyo trabajo era **tumbarlo**, no confirmarlo.
 
 ---
 
-## A · Fallos de funcionamiento — **confirmados**
+## A · Fallos de funcionamiento
 
-3 rondas · 10 áreas · cada fallo lo **reprodujo un segundo agente** cuyo trabajo
-era refutarlo. 25 candidatos → **19 confirmados**. De la última ronda murieron
-20 agentes por el límite, así que la lista está **incompleta por abajo**: hay
-áreas que no llegaron a agotarse.
+3 rondas · 10 áreas · cada fallo reproducido por un segundo agente.
+25 candidatos → **19 confirmados**. De la última ronda murieron 20 agentes por
+límite de sesión, así que la lista está **incompleta por abajo**: hay áreas que
+no llegaron a agotarse.
 
-### Ya arreglados (commit `90652be`)
+### Arreglados
+
+**Commit `90652be`**
 
 | Fallo | Dónde |
 | --- | --- |
@@ -25,28 +27,26 @@ era refutarlo. 25 candidatos → **19 confirmados**. De la última ronda muriero
 
 Los cuatro últimos los introduje yo el mismo día. El primero venía de antes.
 
-### Pendientes · gravedad alta
+**Commit `b04f11c`** — los cuatro de gravedad alta
 
-1. **`goalTimeline` da 1 semana** con objetivo «Ganar fuerza» y meta solo en kg de
-   grasa. La propia interfaz ofrece ese camino. Resultado: «pierdes 8 kg y bajas
-   del 25 % al 17,2 % de grasa en 1 semana», y `planTerminado()` da la meta por
-   cumplida a los 7 días. Línea ~11800.
-2. **`planVolume` cuenta la 2.ª mitad de una superserie como secundaria (×0,5).**
-   Tríceps sale 9 en vez de 10,5 y dispara el aviso «por debajo de 10» que no
-   toca. La app declara la superserie como dos estaciones en todas partes menos
-   aquí. Línea ~11320.
-3. **`importData` acepta cualquier JSON** (un escalar, un array) y **deja la app
-   muerta de forma permanente**: `save()` corre antes de los renders dentro del
-   try/catch, así que el estado envenenado se persiste. Tres fallos distintos,
-   mismo origen. Línea ~3594.
-4. **El filtro `!BOT_MUS[w]`** borra justo la palabra que distingue el ejercicio,
-   y el chat devuelve uno de otro músculo. Línea ~12655.
+| Fallo | Antes | Ahora |
+| --- | --- | --- |
+| `goalTimeline` con ritmo cero | «pierdes 8 kg, del 25 % al 17,2 %, en 1 semana» | inalcanzable, proyección honesta, aviso |
+| `planVolume` y las superseries | tríceps 9 → aviso falso | 10,5 · isquios 14 |
+| `importData` / `applyBackup` | un JSON malo **mataba la app para siempre** | rechazado, no se toca nada |
+| `botBuscaCatalogo` | «curl femoral» → *Curl con barra* (bíceps) | → *Curl femoral* (isquios) |
 
-### Pendientes · gravedad media
+Dos cosas salieron **probando el arreglo**, no leyéndolo: un `plan` basura sale
+de `planLimpio` como array vacío y pintar un plan vacío no lanza error, así que
+pasaba el try/catch y te dejaba sin rutina; y `goalTimeline` seguía devolviendo
+`semanas:1` aun marcado inalcanzable, que llegaba a `p.weeks` y daba la meta por
+cumplida a los 7 días.
+
+### Pendientes · media
 
 - `generatePlan` devuelve planes a medio equilibrar (llamar otra vez a
   `balanceVolume` les cambia el volumen).
-- `VENTANA_FATIGA` cuenta 8 días (o 6) en el cambio de hora — es exactamente la
+- `VENTANA_FATIGA` cuenta 8 días (o 6) en el cambio de hora — exactamente la
   regresión que el comentario dice haber arreglado.
 - `today()` es UTC, no la hora local: el mapa de fatiga pinta un rango que no es
   el día del usuario.
@@ -55,7 +55,7 @@ Los cuatro últimos los introduje yo el mismo día. El primero venía de antes.
 - `duoAnalizar` valida propuesta a propuesta pero `duoAplicarSel` las aplica
   todas de golpe, y vienen premarcadas.
 - Una lista de copias ilegible desactiva `autoBackup` de forma permanente.
-- «Buenos días» es inalcanzable por nombre; pedirlo cae en «Curl con barra».
+- «Buenos días» es inalcanzable por nombre.
 
 ### Pendiente · baja
 
@@ -63,29 +63,36 @@ Los cuatro últimos los introduje yo el mismo día. El primero venía de antes.
 
 ---
 
-## B · Seguridad — **relanzada y completa**
+## B · Seguridad
 
-Segunda pasada (17 ago): 10 superficies · 92 agentes · **0 errores** ·
-81 refutaciones previstas, **81 corridas**, `panelIncompleto: 0`. 27 candidatos →
-**23 sobrevivieron** al panel de tres escépticos → 10 problemas tras fusionar.
+10 superficies · 92 agentes · **0 errores** · 81 refutaciones previstas,
+**81 corridas**, `panelIncompleto: 0`. 27 candidatos → **23 sobrevivieron** al
+panel de tres escépticos → 10 problemas tras fusionar.
 
-**Arreglados (commit `2abe148`)** — los cuatro marcados «ahora» más uno de
-«pronto»:
+Lo más valioso del informe: **lo que más daño hace no es el XSS, son dos fallos
+deterministas que se disparan solos, sin atacante.**
+
+### Arreglados (commit `2abe148`)
 
 | | |
 | --- | --- |
-| Nombre de perfil crudo como clave → **la app dejaba de guardar en silencio** | `generateFromOnboarding`, `nubeBajar` |
-| `planLimpio` ponía `wd:0` (domingo) → «hoy descansas» 6 días de 7 | `planLimpio` |
-| `dbSaneado` validaba el tipo y dejaba el contenido crudo → XSS con robo de sesión | `dbSaneado` |
+| Nombre de perfil crudo como clave y saneado en la lista → **la app dejaba de guardar en silencio** | `generateFromOnboarding`, `nubeBajar` |
+| `planLimpio` ponía `wd:0`, que es domingo → «hoy descansas» 6 días de 7 | `planLimpio` |
+| `dbSaneado` validaba el tipo y dejaba el contenido crudo → XSS con robo de la sesión de Supabase | `dbSaneado` |
 | `allowBackup="true"` → fotos, DB y token en la copia de Google | manifiesto + `configurar_android.js` |
 | Los autotests corrían en el APK en cada arranque | la puerta `localhost` |
+
+El primero le pasa a cualquiera que se llame **D'Angelo, O'Brien, Ana & Luis**,
+que ponga dos espacios seguidos o que pase de 24 caracteres. Ningún atacante:
+solo un apóstrofo. Y el tercero era código que yo mismo había escrito una hora
+antes — comprobaba el tipo y daba por hecho que con eso bastaba.
 
 ### Lo que queda
 
 - **Pronto ·** Las fotos no se borran de Supabase Storage: ni al borrar la foto,
   ni al borrar el atleta, ni al borrar la cuenta. `nubeBorrarCuenta` promete
-  borrarlas y solo toca la tabla. Contradice `privacidad.html:118` y el
-  requisito de borrado de Play. Solo afecta a quien encendió el interruptor.
+  borrarlas y solo toca la tabla. Contradice `privacidad.html` y el requisito de
+  borrado de Play. Solo afecta a quien encendió el interruptor de la nube.
 - **Pronto ·** Cambiar de atleta no reinicia el asistente.
 - **Algún día ·** El módulo de `esm.run` se ejecuta antes de aceptar el Modo IA.
 - **Algún día ·** `MainActivity` en `singleTask` sin `taskAffinity`, y
@@ -93,57 +100,29 @@ Segunda pasada (17 ago): 10 superficies · 92 agentes · **0 errores** ·
 - **No hace falta ·** Un perfil llamado `__proto__` se guarda y no sale en la
   lista.
 
+### Aparte del informe
+
+`keystore.properties` tiene la contraseña de firma en claro en el repositorio.
+No lo tocó esta pasada porque no estaba en ninguna superficie, pero conviene
+mirarlo.
+
 ### Nota sobre la primera pasada
 
-La del 17 de agosto por la mañana quedó inservible: 41 hallazgos pedían 123
-refutaciones y solo cupieron 38 antes de agotarse la sesión. Se relanzó
-limitando a 4 hallazgos por superficie, y con eso el panel cupo entero. La
+La de por la mañana quedó inservible: 41 hallazgos pedían 123 refutaciones y solo
+cupieron 38 antes de agotarse la sesión, y la síntesis murió. Se relanzó
+limitando a **4 hallazgos por superficie** y con eso el panel cupo entero. La
 lección: más hallazgos no es mejor si no se pueden verificar.
-
-Dicho eso, los que más pinta tienen —y varios los corrobora la batería A—:
-
-### Marcados como críticos por quien los encontró
-
-- **Nombre de perfil crudo en `innerHTML`** del resumen del plan. XSS persistente
-  con el propio nombre. (La batería A confirma que hay campos que llegan sin
-  escapar, así que este tiene respaldo cruzado.)
-- **`importData()` mete el JSON crudo en el DOM**: solo se limpia `plan`, los
-  otros seis campos no. Mismo origen que el fallo A-3, ya confirmado.
-- **Borrar la cuenta no toca Storage** y aun así dice «tus datos se han
-  borrado». Si se confirma, contradice `privacidad.html`, que promete borrado
-  inmediato — eso es un problema de ficha, no solo de código.
-- **Se ejecuta código de `esm.run`** al abrir el asistente, sin SRI.
-
-### Recurrentes en varias superficies (señal de que algo hay)
-
-- `android:allowBackup="true"` sin reglas de exclusión: sale del móvil el token
-  de Supabase, el historial y las fotos de progreso. Lo señalaron **tres**
-  superficies distintas por su cuenta.
-- El ciclo de vida de las fotos en Storage: borrar una foto, purgar antiguas o
-  borrar un atleta deja la copia en la nube y pierde la ruta.
-- `keystore.properties` con la contraseña de firma en claro en el repositorio.
-- `atlas_pro='1'` es todo el candado de Pro. **Esto ya lo sabemos y es
-  deliberado** mientras no haya Play Billing: sin cobro no hay nada que
-  proteger.
-
-### Lo que NO me preocupa
-
-- El arnés de diagnóstico en cada arranque: la puerta es `hostname===localhost`.
-- Falsificar `localStorage` con el teléfono desbloqueado en la mano: solo te
-  haces daño a ti mismo.
 
 ---
 
 ## Cómo seguir
 
-1. Reproducir los 4 de gravedad alta de A y arreglarlos. Son concretos y traen
-   el comando de reproducción en el informe del workflow.
-2. Volver a lanzar la parte de seguridad **entera**, con sesión fresca, para que
-   el panel de refutación corra completo. Sin eso, la sección B es una lista de
-   sospechas.
-3. `allowBackup` y `keystore.properties` se pueden mirar a mano en cinco
-   minutos, sin esperar a nada.
+1. Las fotos de Storage. Es lo único pendiente que toca una promesa escrita en
+   `privacidad.html`, así que además de código es asunto de ficha.
+2. Los siete de gravedad media de la sección A.
+3. Volver a lanzar la batería A: quedó incompleta por abajo y hay áreas sin
+   agotar.
 
 Informes completos:
 `~/.claude/projects/…/subagents/workflows/wf_c0cc0b2b-696/` (A)
-`~/.claude/projects/…/subagents/workflows/wf_e3a9b1e6-6df/` (B)
+`~/.claude/projects/…/subagents/workflows/wf_2b9bd3dc-d26/` (B, la buena)
