@@ -3607,20 +3607,72 @@ function importarAtleta(){
   inp.click();
 }
 
+/* =====  LA FRONTERA DE LO QUE VIENE DE FUERA  =====
+   Un archivo importado, o una copia restaurada, puede traer CUALQUIER cosa: no
+   solo campos de mas, tambien un escalar, un array, o `logs` siendo un numero.
+   Antes se hacia `DB=o` a pelo y se llamaba a save() ANTES de los renders, asi
+   que un JSON que reventaba el render ya se habia guardado: la app arrancaba
+   rota, volvia a reventar, y no habia forma de salir sin borrar los datos del
+   navegador. Tres fallos distintos con el mismo origen.
+
+   Aqui se exige un objeto de verdad y se fuerza el TIPO de cada contenedor, que
+   es lo que luego dan por hecho save(), saveLog() y los renders. */
+function esObjetoLlano(x){
+  return !!x && typeof x==='object' && !Array.isArray(x);
+}
+function dbSaneado(o){
+  if(!esObjetoLlano(o)) return null;
+  const d={...o};
+  d.plan    = planLimpio(d.plan);
+  d.logs    = esObjetoLlano(d.logs)  ? d.logs  : {};
+  d.done    = esObjetoLlano(d.done)  ? d.done  : {};
+  d.oneRM   = esObjetoLlano(d.oneRM) ? d.oneRM : {};
+  d.profile = esObjetoLlano(d.profile) ? d.profile : null;
+  d.body    = Array.isArray(d.body)   ? d.body   : [];
+  d.photos  = Array.isArray(d.photos) ? d.photos : [];
+  d.dislikes= Array.isArray(d.dislikes)? d.dislikes : [];
+  return d;
+}
+/* Cambia el DB entero y pinta. Si algo revienta al pintar, DEVUELVE el DB de
+   antes y vuelve a pintar: nada se guarda hasta que se sabe que la app sigue
+   viva. Lo usan importData y applyBackup, que tenian el mismo agujero. */
+function cambiaDB(nuevo){
+  const antes=DB;
+  const teniaPlan = !!(antes && antes.plan && antes.plan.length);
+  const traePlan  = !!(nuevo && nuevo.plan && nuevo.plan.length);
+  /* No basta con que no reviente. Un `plan` que es basura sale de planLimpio
+     como array VACIO, y pintar un plan vacio no lanza ningun error: pasaba el
+     try/catch tan tranquilo y te dejaba sin rutina, guardado y todo.
+     Por eso hay que mirar el RESULTADO, no solo si hubo excepcion. */
+  if(nuevo && nuevo.profile && !traePlan) return false;   // perfil sin rutina: no es un estado usable
+  if(teniaPlan && !traePlan) return false;                // el archivo te dejaba sin la que tenias
+  try{
+    DB=nuevo;
+    applyPlan();renderDayChips();renderDay();buildProgSel();renderProg();renderOverview();
+    renderBody();renderOneRM();renderHeat();renderPlanInfo();renderIntake();
+    save();                       // ultimo: solo se persiste lo que ya pinto bien
+    return true;
+  }catch(e){
+    DB=antes;
+    try{ applyPlan();renderDayChips();renderDay();renderProg();renderOverview(); }catch(e2){}
+    console.warn('[importar] datos rechazados:', e && e.message);
+    return false;
+  }
+}
 function importData(){
   const inp=document.createElement("input"); inp.type="file"; inp.accept=".json";
   inp.onchange=()=>{const f=inp.files[0];const r=new FileReader();
     r.onload=async ()=>{try{
-        const o=JSON.parse(r.result);
-        o.plan=planLimpio(o.plan);        // frontera: el archivo es de fuera
-        const fotos=o.__fotos||{}; delete o.__fotos;     // backups viejos no las traen
-        DB=o;DB.logs=DB.logs||{};DB.done=DB.done||{};DB.body=DB.body||[];DB.oneRM=DB.oneRM||{};DB.photos=DB.photos||[];
+        const crudo=JSON.parse(r.result);
+        const fotos=(esObjetoLlano(crudo) && esObjetoLlano(crudo.__fotos)) ? crudo.__fotos : {};
+        if(esObjetoLlano(crudo)) delete crudo.__fotos;   // backups viejos no las traen
+        const nuevo=dbSaneado(crudo);
+        if(!nuevo){ toast("Archivo inválido"); return; }
         let n=0;
         for(const id of Object.keys(fotos)){
           try{ await fotoGuardarLocal(id, dataURLABlob(fotos[id])); n++; }catch(e){}
         }
-        save();applyPlan();renderDayChips();renderDay();buildProgSel();renderProg();renderOverview();
-        renderBody();renderOneRM();renderHeat();renderPlanInfo(); renderIntake();
+        if(!cambiaDB(nuevo)){ toast("Archivo inválido · no se ha tocado nada"); return; }
         const faltan=(DB.photos||[]).length-n;
         toast(`Datos importados ${n?` · ${n} foto${n===1?'':'s'}`:''}${faltan>0?` · ${faltan} sin imagen`:''}`);
       }catch(e){toast("Archivo inválido");}};
@@ -3666,10 +3718,10 @@ async function applyBackup(i){
     "Sí, restaurar","Restaurar copia");
   if(!ok) return;
   autoBackup('antes de restaurar');                 // red de seguridad por si te arrepientes
-  DB = JSON.parse(JSON.stringify(b.datos));
-  DB.logs=DB.logs||{};DB.done=DB.done||{};DB.body=DB.body||[];DB.oneRM=DB.oneRM||{};DB.photos=DB.photos||[];
-  save(); applyPlan(); renderDayChips(); renderDay(); buildProgSel(); renderProg(); renderOverview();
-  renderBody(); renderOneRM(); renderHeat(); renderPlanInfo(); renderIntake();
+  /* Por la misma puerta que importData: una copia automatica puede haber
+     fotografiado un DB ya corrompido, y restaurarla a pelo lo reinyectaba. */
+  const nuevo = dbSaneado(JSON.parse(JSON.stringify(b.datos)));
+  if(!nuevo || !cambiaDB(nuevo)){ toast("Esa copia está dañada · no se ha tocado nada"); return; }
   $("#bkModal").classList.remove("on");
   toast("Copia restaurada ");
 }
@@ -11336,11 +11388,20 @@ function generatePlan(p){
   return plan;
 }
 /* Series semanales por músculo de un plan (primario 1, secundario 0,5) — como el mapa de fatiga. */
+/* El musculo 0 es el primario (serie entera) y los demas son ayudantes (media).
+   EXCEPCION: una superserie no tiene "ayudante". Sus dos musculos son dos
+   ESTACIONES, cada una con sus propias series y su propio peso — la app lo dice
+   en todas partes menos aqui: SUPER_PARTES les pone nombre, renderDay les pinta
+   dos casillas por serie y saveLog guarda sets y sets2 por separado.
+   Contando la segunda mitad a 0,5 el triceps salia con 9 series y disparaba el
+   aviso de "por debajo de 10" que no tocaba, y balanceVolume añadia volumen que
+   ya estaba ahi. */
 function planVolume(plan){
   const v={};
   plan.forEach(d=>d.ex.forEach(e=>{
     const mm=MUSCLES[e.id]; if(!mm||e.cardio) return;
-    mm.forEach((m,i)=>v[m]=(v[m]||0)+ (e.sets||3)*(i===0?1:0.5));
+    const entera = esSuper(e.id);
+    mm.forEach((m,i)=>v[m]=(v[m]||0)+ (e.sets||3)*((i===0||entera)?1:0.5));
   }));
   return v;
 }
@@ -11821,19 +11882,43 @@ function goalTimeline(p){
   const rm=ritmoMusculoMes(p), rg=ritmoGrasaSemana(p,w,bf);
   const semGanar  = (ganar>0 && rm>0) ? ganar/(rm/4.345) : 0;
   const semPerder = (perder>0 && rg>0) ? perder/rg : 0;
+  /* RITMO CERO NO ES "YA ESTA", ES "NUNCA".
+     Con objetivo "Ganar fuerza" o "Ganar musculo" se come en SUPERAVIT, asi que
+     el deficit es 0 y ritmoGrasaSemana devuelve 0. Como semPerder salia 0, el
+     max() lo ignoraba y el plazo caia al minimo de 1 semana: la app decia
+     "pierdes 8 kg y bajas del 25 % al 17,2 % de grasa en 1 semana", y
+     planTerminado() daba la meta por cumplida a los 7 dias.
+     Y el camino lo ofrece la propia interfaz: con goal='strength', metaRecoHTML
+     pinta el campo "Perder grasa" con su boton de "usar esta cifra". */
+  const perderImposible = perder>0 && !(rg>0);
+  const ganarImposible  = ganar>0  && !(rm>0);
   /* Tope de 5 años: sin esto salían plazos de 5.170 semanas (99 años), que no
      es una previsión sino un número roto. Por encima se avisa de que no sale. */
   const CAP=260;
-  const crudo = Math.max(1, Math.ceil(Math.max(semGanar, semPerder)));
-  const inalcanzable = crudo>CAP;
+  let crudo = Math.max(1, Math.ceil(Math.max(semGanar, semPerder)));
+  const inalcanzable = crudo>CAP || perderImposible || ganarImposible;
+  /* Si pediste una meta y NINGUNA parte es alcanzable, crudo se queda en el
+     minimo de 1 semana. Ese 1 no es un plazo: es la ausencia de plazo, y aguas
+     abajo hace daño de verdad — p.weeks=1, la ficha dice "Duracion: 1 semanas" y
+     planTerminado() te felicita a los 7 dias. Se usa un bloque normal de 12
+     semanas para que el plan tenga forma, y el aviso de arriba es el que explica
+     que la meta hay que cambiarla. */
+  if(crudo===1 && (ganar>0||perder>0) && !(semGanar>0||semPerder>0)) crudo=12;
   const semanas = Math.min(crudo, CAP);
   const d=new Date(today()+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+semanas*7);
   const fecha=d.toISOString().slice(0,10);
-  const pesoFin=+(w - perder + ganar).toFixed(1);
+  /* La proyeccion solo descuenta lo que de verdad puede pasar: si con este
+     objetivo la grasa no baja, no se puede pintar un peso final como si bajara. */
+  const perderReal = perderImposible ? 0 : perder;
+  const ganarReal  = ganarImposible  ? 0 : ganar;
+  const pesoFin=+(w - perderReal + ganarReal).toFixed(1);
   let bfFin=bf;
-  if(bf!=null){ const grasaFin=Math.max(0, w*bf/100 - perder); bfFin=+(grasaFin/Math.max(1,pesoFin)*100).toFixed(1); }
+  if(bf!=null){ const grasaFin=Math.max(0, w*bf/100 - perderReal); bfFin=+(grasaFin/Math.max(1,pesoFin)*100).toFixed(1); }
   const avisos=[];
-  if(inalcanzable) avisos.push(`Esta meta <b>no sale a un ritmo realista</b>: harían falta más de <b>${Math.round(crudo/52)} años</b>. Reduce los kilos o cambia de objetivo — te muestro los 5 años del tope, pero el número real no significa nada.`);
+  const OBJ={muscle:'Ganar músculo', strength:'Ganar fuerza', fat:'Perder grasa', recomp:'Recomposición'};
+  if(perderImposible) avisos.push(`Con el objetivo <b>${OBJ[p.goal]||p.goal}</b> comes en <b>superávit</b>, así que esos <b>${perder} kg de grasa no van a bajar</b> por mucho tiempo que pase. Si lo que quieres es perder grasa, cambia el objetivo a <b>Perder grasa</b> o <b>Recomposición</b>.`);
+  if(ganarImposible) avisos.push(`Con este objetivo no se gana músculo a un ritmo medible. Cambia de objetivo o quita los kilos a ganar.`);
+  if(crudo>CAP) avisos.push(`Esta meta <b>no sale a un ritmo realista</b>: harían falta más de <b>${Math.round(crudo/52)} años</b>. Reduce los kilos o cambia de objetivo — te muestro los 5 años del tope, pero el número real no significa nada.`);
   else if(semanas>156) avisos.push(`Son más de <b>3 años</b>. Parte la meta en tramos más cortos o la vas a abandonar antes de verla.`);
   if(ganar>0 && rm>0 && ganar >w*0.10) avisos.push(`Ganar <b>${ganar} kg</b> de músculo es más del 10 % de tu peso: para la mayoría es el techo de varios años de entrenamiento serio.`);
   if(perder>0 && bf!=null && bfFin!=null && bfFin < (p.sex==='m'?14:7)) avisos.push(`Perder <b>${perder} kg</b> te dejaría en <b>${bfFin} %</b> de grasa, por debajo de lo saludable. Baja la meta.`);
@@ -12673,10 +12758,21 @@ const botMusEn = q => { for(const w of botToks(q)) if(BOT_MUS[w]) return BOT_MUS
 const BOT_ADD_STOP=new Set(('anade agrega mete meter pon poner ponme ponerme coloca colocar colocame incluye incluir '+
   'sumar suma quisiera queria gustaria ejercicio plan rutina dia dias semana entreno entrenar sesion '+
   'lunes lune martes marte miercoles miercole jueves jueve viernes vierne sabado domingo').split(' '));
+/* CUIDADO CON QUITAR LAS PALABRAS DE MUSCULO.
+   Antes se filtraban SIEMPRE (`!BOT_MUS[w]`), y eso borraba justo la palabra que
+   distingue el ejercicio: «curl femoral» se quedaba en [curl] y casaba con «Curl
+   con barra», que es BICEPS. El chat te metia en el plan un ejercicio de otro
+   musculo del que pediste.
+   La regla buena no es quitarlas, es esta: se busca por nombre con TODAS las
+   palabras, pero solo si queda alguna que NO sea un musculo. Asi «curl femoral»
+   busca [curl, femoral] y acierta, mientras que «añade un ejercicio de gluteo»
+   —donde lo unico que queda es «gluteo»— no se busca por nombre y cae en la
+   busqueda por musculo de siempre, que es lo que ya se queria. */
 function botBuscaCatalogo(q){
   const pool=poolCached();
-  const t=botToks(q).filter(w=>!BOT_ADD_STOP.has(w) && !BOT_MUS[w]);
+  const t=botToks(q).filter(w=>!BOT_ADD_STOP.has(w));
   if(!t.length) return null;
+  if(!t.some(w=>!BOT_MUS[w])) return null;   // solo musculos: no es una peticion por nombre
   let best=null;
   for(const id of Object.keys(pool)){
     const e=pool[id];
