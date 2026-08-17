@@ -2418,7 +2418,14 @@ const $ = s=>document.querySelector(s);
    registrada. Exigir el dia entero haria que faltar a un ejercicio te borrara
    el dia, y el contador pasaria de motivar a fastidiar. */
 function diasEntrenados(){
-  const s=new Set(Object.keys(DB.done||{}).filter(d=>Object.keys(DB.done[d]||{}).length));
+  /* Un dia marcado SOLO como descanso no es un dia entrenado. Contaba, y el
+     "Dia X de N" corria mas rapido que el plan: con 4 dias a la semana y 3 de
+     descanso marcados, el contador se comia 7 casillas por semana en vez de 4 y
+     llegaba al final del plan casi el doble de rapido.
+     La racha (rachaDias) SI cuenta el descanso, y a proposito: son dos cosas
+     distintas y por eso lleva su propia cuenta. */
+  const s=new Set(Object.keys(DB.done||{}).filter(d=>
+    Object.keys(DB.done[d]||{}).some(k=>k!==claveDescanso())));
   Object.values(DB.logs||{}).flat().forEach(x=>{ if(x && x.date) s.add(x.date); });
   return s;
 }
@@ -2947,6 +2954,17 @@ async function pedirQuitarEx(card){
   if(ok) quitarExDia(id);
 }
 
+/* La rueda de alternativas recuerda con que ejercicio NACIO cada hueco, y la
+   clave es "dia|indice". Al sacar uno de en medio, todos los de despues bajan un
+   indice: sin esto, el hueco 3 se queda con el recuerdo del que era el 3 ANTES,
+   y la rueda te ofrece alternativas de otro musculo. Se borra el del hueco que
+   se va y se desplazan los de arriba. */
+function corrigeSwapOrig(diaId, i, quedan){
+  if(!DB.swapOrig) return;
+  for(let j=i; j<quedan; j++) DB.swapOrig[diaId+'|'+j] = DB.swapOrig[diaId+'|'+(j+1)];
+  delete DB.swapOrig[diaId+'|'+quedan];
+}
+
 /* Espejo de addExerciseToDay: si aquel refresca seis vistas, este tambien, o el
    mapa de fatiga y el volumen semanal se quedan contando un ejercicio que ya no
    esta en el plan. */
@@ -2957,10 +2975,15 @@ function quitarExDia(id){
   if(i<0) return;
   if(dia.ex.length<=1){ toast('Es el único ejercicio del día'); return; }
   const [fuera] = dia.ex.splice(i,1);
+  corrigeSwapOrig(dia.id||curIdx, i, dia.ex.length);
   save(); rebuildPlanIndexes(); buildExerciseMedia(); buildProgSel();
   renderDay(); renderProg(); renderOverview(); renderHeat(); renderPlanInfo(); renderVolSemanal();
-  const m=(fuera.mus||[])[0], v=planVolume(DAYS);
-  toast(`${fuera.n} fuera · ${MUSCLE_ES[m]||m}: ${v[m]||0} series/semana`);
+  /* El musculo se mira en MUSCLES, no en fuera.mus: los ejercicios del plan POR
+     DEFECTO no llevan .mus -eso lo trae el catalogo-, y el aviso salia como
+     "undefined: 0 series/semana". */
+  const m=(MUSCLES[fuera.id]||fuera.mus||[])[0], v=planVolume(DAYS);
+  toast(m ? `${fuera.n} fuera · ${MUSCLE_ES[m]||m}: ${v[m]||0} series/semana`
+          : `${fuera.n} fuera del plan`);
 }
 
 function prefill(id){
@@ -15493,10 +15516,18 @@ function adsYaVisto(cual){
     return v.d===today() && !!v[cual];
   }catch(e){ return false; }
 }
+/* OJO: el `v` de aqui tiene que tolerar basura. Si esa clave acaba con algo que
+   no es un objeto -otra version, un backup a medias, alguien toqueteando-,
+   `v.d` peta o es undefined, adsYaVisto devuelve siempre false y adsMarca no
+   arregla nada: el tope de "uno al dia" se pierde PARA SIEMPRE y salen anuncios
+   sin freno, que es motivo de cierre de cuenta en AdMob. Por eso adsMarca
+   reescribe la clave entera cuando lo que habia no era un objeto. */
 function adsMarca(cual){
   try{
-    const v=JSON.parse(localStorage.getItem(ADS_LS)||'{}');
-    const n = v.d===today() ? v : {d:today()};
+    let v=null;
+    try{ v=JSON.parse(localStorage.getItem(ADS_LS)||'{}'); }catch(e){ v=null; }
+    if(!v || typeof v!=='object' || Array.isArray(v)) v=null;
+    const n = (v && v.d===today()) ? v : {d:today()};
     n[cual]=true;
     localStorage.setItem(ADS_LS, JSON.stringify(n));
   }catch(e){}
@@ -15510,9 +15541,16 @@ async function adsInit(){
 
 /* Devuelve SIEMPRE, con anuncio o sin el. Lo que no puede pasar es que un fallo
    de red deje al usuario mirando una pantalla en blanco a medio entrenamiento. */
+/* _adsEnMarcha: la marca de "ya visto" se pone DESPUES de mostrarlo, asi que dos
+   llamadas solapadas -abrir y cerrar el panel del duo rapido- pasaban las dos por
+   el filtro y encadenaban dos intersticiales seguidos. El cerrojo es sincrono, se
+   pone antes del primer await. */
+let _adsEnMarcha=false;
 async function adsMostrar(cual){
   if(esPro()) return false;                 // Pro = sin anuncios, y punto
+  if(_adsEnMarcha) return false;
   if(!adsHay() || adsYaVisto(cual)) return false;
+  _adsEnMarcha=true;
   const P=adsPlugin();
   try{
     await P.prepareInterstitial({ adId: ADS_ID(cual), isTesting: !ADS_REALES[cual] });
@@ -15522,6 +15560,8 @@ async function adsMostrar(cual){
   }catch(e){
     console.warn('[ads] '+cual+' no se mostro:', e && e.message);
     return false;
+  }finally{
+    _adsEnMarcha=false;   // en finally: si prepare peta, el cerrojo NO se queda echado
   }
 }
 
