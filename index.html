@@ -2210,7 +2210,14 @@ function planLimpio(plan){
     title: TXT_SEGURO(d.title),
     focus: TXT_SEGURO(d.focus),
     why:   TXT_SEGURO(d.why),
-    wd:    Number.isFinite(+d.wd) ? +d.wd : 0,
+    /* null, NO 0. El domingo es wd=0, asi que un dia SIN wd no se puede
+       confundir con "domingo": los seis dias de DEFAULT_DAYS no lo traen, y
+       +undefined es NaN, asi que todos caian a 0. dayByWeekday se quedaba en
+       {0:5} y de lunes a sabado la app decia "hoy descansas", abriendo siempre
+       el lunes. Se disparaba solo al restaurar una copia, al importar o al
+       sincronizar con la nube, y quedaba guardado.
+       rebuildPlanIndexes y duoWd YA tienen escrito el respaldo `d.wd==null`. */
+    wd:    Number.isFinite(+d.wd) ? +d.wd : null,
     ex: (Array.isArray(d.ex) ? d.ex : []).slice(0, 40).map(e => Object.assign({}, e, {
       id:    ID_SEGURO(e.id),
       n:     TXT_SEGURO(e.n),
@@ -3620,6 +3627,23 @@ function importarAtleta(){
 function esObjetoLlano(x){
   return !!x && typeof x==='object' && !Array.isArray(x);
 }
+/* Comprobar el TIPO no basta: `profile` era un objeto de verdad y aun asi sus
+   cadenas salian crudas a innerHTML en seis sitios -el nombre en el resumen del
+   plan, objetivo/nivel/foco en la ficha, el objetivo de la pareja, el peso en el
+   historial-, y ninguno hace falta tocar nada para que se pinte. Como la CSP no
+   lleva script-src, un <img src=x onerror=...> corria, y en localStorage vive
+   atlas_nube_sesion con el access_token: RLS no protege de eso, porque ese token
+   ES el usuario. Se cierra AQUI, en la frontera, y no en seis renders. */
+function perfilSaneado(p){
+  if(!esObjetoLlano(p)) return null;
+  const limpia = v => typeof v==='string' ? TXT_SEGURO(v)
+                    : Array.isArray(v)    ? v.map(limpia)
+                    : v;
+  const out={};
+  for(const [k,v] of Object.entries(p)) out[ID_SEGURO(k)||k] = limpia(v);
+  if(typeof out.name==='string') out.name = NOMBRE_SEGURO(out.name);
+  return out;
+}
 function dbSaneado(o){
   if(!esObjetoLlano(o)) return null;
   const d={...o};
@@ -3627,10 +3651,13 @@ function dbSaneado(o){
   d.logs    = esObjetoLlano(d.logs)  ? d.logs  : {};
   d.done    = esObjetoLlano(d.done)  ? d.done  : {};
   d.oneRM   = esObjetoLlano(d.oneRM) ? d.oneRM : {};
-  d.profile = esObjetoLlano(d.profile) ? d.profile : null;
-  d.body    = Array.isArray(d.body)   ? d.body   : [];
+  d.profile = perfilSaneado(d.profile);
+  /* El historial corporal se pinta crudo y solo necesita fecha y dos numeros. */
+  d.body    = (Array.isArray(d.body) ? d.body : []).slice(0,2000)
+                .filter(esObjetoLlano)
+                .map(x=>({date:TXT_SEGURO(x.date), w:TXT_SEGURO(x.w), bf:TXT_SEGURO(x.bf)}));
   d.photos  = Array.isArray(d.photos) ? d.photos : [];
-  d.dislikes= Array.isArray(d.dislikes)? d.dislikes : [];
+  d.dislikes= (Array.isArray(d.dislikes)? d.dislikes : []).map(x=>ID_SEGURO(x)).filter(Boolean);
   return d;
 }
 /* Cambia el DB entero y pinta. Si algo revienta al pintar, DEVUELVE el DB de
@@ -12611,7 +12638,16 @@ function diagnosticoPlan(p){
 }
 function generateFromOnboarding(){
   const redo = (_onbMode==='redo');
-  const name = redo ? PROFILE : ($("#onbName").value||'').trim();
+  /* NOMBRE_SEGURO aqui, no solo dentro de addProfileEntry. Antes se guardaba el
+     nombre CRUDO como clave (recomp_v1_D'Angelo) y el SANEADO en la lista de
+     perfiles (DAngelo): dos cadenas distintas. La primera sesion iba bien; al
+     recargar, PROFILE no estaba en PROFILES, loadProfile no corria, LS quedaba
+     vacio y save() salia por `if(!LS) return`. Cada serie, medicion y foto se
+     tiraba EN SILENCIO, para siempre, y rehacer el test no lo arreglaba.
+     Le pasa a cualquiera que se llame D'Angelo, O'Brien, Ana & Luis, que ponga
+     dos espacios seguidos o que pase de 24 caracteres. Ningun atacante: solo un
+     apostrofo en el nombre. */
+  const name = redo ? PROFILE : NOMBRE_SEGURO($("#onbName").value);
   onbLimpiaErr();
   if(!name){ onbErr("#onbName", "Escribe tu nombre"); return; }
   if(!redo && PROFILES[name]){ onbErr("#onbName", `Ya existe un usuario que se llama "${name}". Pon otro nombre.`); return; }
@@ -14928,6 +14964,13 @@ async function nubeBajar(){
     (filas||[]).forEach(f=>{
       /* Tambien frontera: la fila pudo escribirla otro cliente, o tu mismo desde
          un movil donde ya habias importado algo con veneno dentro. */
+      /* El nombre se sanea ANTES de usarlo como clave. Si no, los datos se
+         escribian en recomp_v1_<nombre crudo> y el perfil se daba de alta con el
+         saneado: en un movil nuevo el atleta aparecia en la lista y salia VACIO,
+         porque su clave real no era la que la lista sabia buscar. Mismo fallo
+         que en el alta, por la otra puerta. */
+      f.nombre = NOMBRE_SEGURO(f.nombre);
+      if(!f.nombre) return;
       const dat=f.data||{}; dat.plan=planLimpio(dat.plan);
       localStorage.setItem('recomp_v1_'+f.nombre, JSON.stringify(dat));
       /* Saneado tambien aqui: la fila pudo escribirla otro cliente, o tu mismo
@@ -15676,7 +15719,14 @@ adsInit().then(()=>{
   setTimeout(()=>adsMostrar('inicio'), 1200);
 });
 
-if(['localhost','127.0.0.1'].includes(location.hostname)){
+/* OJO CON ESTA PUERTA. Capacitor sirve la app desde http://localhost DENTRO del
+   movil, asi que `hostname==='localhost'` es VERDADERO en el APK publicado: los
+   dos arneses de prueba se ejecutaban enteros en el telefono de cada usuario en
+   cada arranque, quemando CPU y bateria en algo que no le sirve de nada, y
+   pisandole el DB con los perfiles de pega que montan las pruebas.
+   Por eso hay que descartar ademas el contenedor nativo. */
+const esNativo = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+if(['localhost','127.0.0.1'].includes(location.hostname) && !esNativo()){
   let _yaCorrio=false;
   const _corre=()=>{
     if(_yaCorrio) return;
