@@ -82,6 +82,17 @@ deterministas que se disparan solos, sin atacante.**
 | `allowBackup="true"` → fotos, DB y token en la copia de Google | manifiesto + `configurar_android.js` |
 | Los autotests corrían en el APK en cada arranque | la puerta `localhost` |
 
+**Commit `21a9fd1`**
+
+| | |
+| --- | --- |
+| Las fotos no se borraban de Storage por ninguno de los cuatro caminos | `fotosBorrarRutas`, `deletePhoto`, `purgarFotos`, `deleteUser`, `nubeBorrarCuenta` |
+
+El único `DELETE` contra el bucket solo se alcanzaba apagando el interruptor, y
+no miraba `r.ok`: sin red borraba el puntero, cantaba «N fotos borradas» y la
+foto seguía ahí. Ahora hay una función que borra y dice la verdad; si falla, no
+se borra nada en local.
+
 El primero le pasa a cualquiera que se llame **D'Angelo, O'Brien, Ana & Luis**,
 que ponga dos espacios seguidos o que pase de 24 caracteres. Ningún atacante:
 solo un apóstrofo. Y el tercero era código que yo mismo había escrito una hora
@@ -89,10 +100,6 @@ antes — comprobaba el tipo y daba por hecho que con eso bastaba.
 
 ### Lo que queda
 
-- **Pronto ·** Las fotos no se borran de Supabase Storage: ni al borrar la foto,
-  ni al borrar el atleta, ni al borrar la cuenta. `nubeBorrarCuenta` promete
-  borrarlas y solo toca la tabla. Contradice `privacidad.html` y el requisito de
-  borrado de Play. Solo afecta a quien encendió el interruptor de la nube.
 - **Pronto ·** Cambiar de atleta no reinicia el asistente.
 - **Algún día ·** El módulo de `esm.run` se ejecuta antes de aceptar el Modo IA.
 - **Algún día ·** `MainActivity` en `singleTask` sin `taskAffinity`, y
@@ -117,8 +124,8 @@ lección: más hallazgos no es mejor si no se pueden verificar.
 
 ## Cómo seguir
 
-1. Las fotos de Storage. Es lo único pendiente que toca una promesa escrita en
-   `privacidad.html`, así que además de código es asunto de ficha.
+1. **Subir la v2.1 (`versionCode 12`) a Play.** La que está en revisión es la
+   2.0, que NO lleva ninguno de estos arreglos.
 2. Los siete de gravedad media de la sección A.
 3. Volver a lanzar la batería A: quedó incompleta por abajo y hay áreas sin
    agotar.
