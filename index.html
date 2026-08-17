@@ -204,6 +204,28 @@ header{position:sticky;top:0;z-index:20;
 .ex{background:var(--card);border:1px solid var(--line);border-radius:var(--r3);
   margin:var(--s3) 0;overflow:hidden}
 .ex.done{border-color:var(--acc-line);background:linear-gradient(var(--acc-ghost),var(--acc-ghost)),var(--card)}
+/* Deslizar a la izquierda para quitar. La tarjeta se tiñe de rojo y saca la
+   papelera por la derecha, que es de donde viene el dedo. Es solo el aviso: lo
+   que borra es el "Sí" del modal, nunca el gesto suelto. */
+/* Atlas Pro */
+.propack{display:flex;gap:10px;margin:4px 0 14px}
+.proplan{flex:1;position:relative;background:var(--bg2);border:1px solid var(--line);
+  border-radius:var(--r3);padding:14px 10px;color:var(--txt);cursor:pointer;text-align:center;
+  min-height:var(--tap);display:flex;flex-direction:column;gap:2px;align-items:center}
+.proplan:hover{border-color:var(--n-700)}
+.proplan.mejor{border-color:var(--acc-line);background:var(--acc-ghost)}
+.proplan b{font-size:var(--t-lg);font-weight:700}
+.proplan span{font-size:var(--t-xs);color:var(--muted);line-height:1.35}
+.proplan em{position:absolute;top:-9px;left:50%;transform:translateX(-50%);white-space:nowrap;
+  background:var(--accent);color:var(--ink);font-size:11px;font-weight:700;font-style:normal;
+  padding:2px 8px;border-radius:999px}
+.prolista{margin:0;padding-left:18px;color:var(--muted);font-size:var(--t-sm);line-height:1.75}
+.proya{background:var(--acc-ghost);border:1px solid var(--acc-line);border-radius:var(--r3);
+  padding:10px 12px;margin-bottom:12px;color:var(--accent);font-weight:600;font-size:var(--t-sm)}
+.ex.porBorrar{border-color:var(--bad);background:rgba(255,107,107,.22);position:relative}
+.ex.porBorrar>*{opacity:.3}
+.ex.porBorrar:after{content:"";position:absolute;top:0;right:0;bottom:0;width:70px;
+  background:var(--bad) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6'/%3E%3C/svg%3E") center/26px no-repeat}
 .ex-top{display:flex;gap:var(--s3);padding:var(--s3);align-items:flex-start}
 .fig{flex:0 0 84px;width:84px;height:84px;background:var(--bg2);border-radius:var(--r2);
   display:grid;place-items:center;color:var(--accent);position:relative;overflow:hidden;cursor:pointer}
@@ -1228,6 +1250,7 @@ input.sug::placeholder{color:var(--muted);opacity:.5;font-weight:400}
         <button onclick="openProfile()">Cambiar usuario</button>
         <button onclick="redoTest()">Rehacer test</button>
         <button onclick="deleteRoutine()">Borrar rutina</button>
+        <button onclick="abrirPro()">Atlas Pro · sin anuncios</button>
         <button onclick="exportData()">Exportar datos</button>
         <button onclick="exportPrompt()">Texto para asistente</button>
         <button onclick="importData()">Importar</button>
@@ -1491,6 +1514,30 @@ input.sug::placeholder{color:var(--muted);opacity:.5;font-weight:400}
       <button class="btn ghost" style="flex:1" onclick="askResolve(false)">Cancelar</button>
       <button class="btn primary" style="flex:1;background:var(--bad);color:#fff" id="askOk" onclick="askResolve(true)">Sí, borrar</button>
     </div>
+  </div>
+</div>
+
+<!--  Atlas Pro. El boton de pagar NO cobra todavia: sin Facturacion de Google Play
+      no se puede cobrar por esto en Android, y ademas la ficha enviada a revision
+      declara que no hay contenido de pago. Hasta que las dos cosas cambien, el
+      boton explica en que estado esta en vez de fingir un cobro. -->
+<div class="modal" id="proModal" style="z-index:97">
+  <div class="box" style="max-width:420px;text-align:left">
+    <h3 style="margin-top:0">Atlas Pro</h3>
+    <p style="color:var(--muted);margin:0 0 14px">Lo mismo de siempre, sin anuncios.</p>
+    <div id="proEstado"></div>
+    <div class="propack">
+      <button class="proplan" onclick="proComprar('mes')">
+        <b>2,99 US$</b><span>al mes</span></button>
+      <button class="proplan mejor" onclick="proComprar('ano')">
+        <em>2 meses gratis</em><b>29,97 US$</b><span>al año · 2,50/mes</span></button>
+    </div>
+    <ul class="prolista">
+      <li>Sin ningún anuncio</li>
+      <li>Todo lo demás sigue igual y gratis: la app entera funciona sin pagar</li>
+      <li>Se cancela cuando quieras desde Google Play</li>
+    </ul>
+    <button class="btn ghost" style="width:100%;margin-top:12px" onclick="cerrarPro()">Cerrar</button>
   </div>
 </div>
 
@@ -2417,7 +2464,7 @@ function renderDayChips(){
     })()
     + `<div class="chip chip-edit" onclick="openDias()">Cambiar días</div>`;
   /* Va en su propio hueco del cuerpo, no dentro del header sticky. */
-  const hueco=$("#adhSemana"); if(hueco) hueco.innerHTML=barraAdherencia();
+  pintaContador();
   const act=$("#days").querySelector('.chip.on'); if(act) act.scrollIntoView({inline:'center',block:'nearest'});
 }
 function setDay(i){ curIdx=i; renderDayChips(); renderDay(); if(!$("#v-day").classList.contains("on")) tab('day'); window.scrollTo(0,0); }
@@ -2632,6 +2679,19 @@ function renderDay(){
   renderTestSorpresa();     //  reto sorpresa de 1RM
   renderDuoBar(DUO);        //  resumen del día con la pareja
   renderMotorAviso();       //  aviso si el plan se generó con un motor anterior
+  pintaContador();          //  el fuego, que si no se queda en el numero de ayer
+  swipeInit();              //  deslizar a la izquierda para quitar (idempotente)
+}
+/* El contador vivia SOLO dentro de renderDayChips(), que no corre al marcar un
+   ejercicio ni al guardar una serie: el dia ya estaba contado en DB.done, pero
+   nadie repintaba el numero hasta que cambiabas de pestaña o recargabas. De ahi
+   el "se quedo en 8 y hoy era el 9".
+   Va aqui, en renderDay(), porque por aqui pasan TODOS los caminos que marcan
+   algo -toggleDone, saveLog, cerrar sesion- en vez de poner una llamada suelta
+   en cada uno y que el siguiente que se añada se olvide otra vez. */
+function pintaContador(){
+  const hueco=$("#adhSemana");
+  if(hueco) hueco.innerHTML=barraAdherencia();
 }
 /* Aviso de motor actualizado. No regenera nada: solo lo cuenta y ofrece rehacer el test,
    que es lo único que reconstruye el plan. Se puede descartar y no vuelve a salir. */
@@ -2835,6 +2895,72 @@ function toggleDone(id){
   if(!DB.done[t][k]) delete DB.done[t][k];
   save(); renderDay(); renderOverview();
   if(dayDoneCount()===total && before<total) celebrate();
+}
+
+/* =====  DESLIZAR A LA IZQUIERDA PARA QUITAR UN EJERCICIO  =====
+   Un solo par de listeners en el contenedor, no uno por tarjeta: la lista se
+   repinta entera en cada renderDay() y con listeners por tarjeta se quedarian
+   colgando decenas de ellos por sesion.
+
+   Solo cuenta si el dedo va MAS en horizontal que en vertical: si no, bastaba
+   con hacer scroll un poco torcido para que apareciera el aviso de borrar en
+   mitad del entrenamiento. Y el gesto NO borra: pinta y pregunta. */
+const SWIPE_MIN = 60;          // px hacia la izquierda para que cuente
+let _swipe = null;
+
+function swipeInit(){
+  const lista = $("#exList");
+  if(!lista || lista._swipeOK) return;
+  lista._swipeOK = true;
+
+  lista.addEventListener('pointerdown', ev=>{
+    /* Sobre una casilla o un boton no: ahi el arrastre es del propio control. */
+    if(ev.target.closest('input,button,textarea,select,a')) return;
+    const card = ev.target.closest('.ex');
+    if(!card || card.classList.contains('porBorrar')) return;
+    _swipe = {x:ev.clientX, y:ev.clientY, card};
+  }, {passive:true});
+
+  lista.addEventListener('pointerup', ev=>{
+    const s=_swipe; _swipe=null;
+    if(!s) return;
+    const dx = ev.clientX - s.x, dy = ev.clientY - s.y;
+    if(dx > -SWIPE_MIN) return;               // no fue hacia la izquierda
+    if(Math.abs(dx) < Math.abs(dy)*1.5) return;  // fue scroll, no un deslizamiento
+    ev.preventDefault();
+    pedirQuitarEx(s.card);
+  });
+
+  lista.addEventListener('pointercancel', ()=>{ _swipe=null; }, {passive:true});
+}
+
+async function pedirQuitarEx(card){
+  const id = (card.id||'').replace(/^card_/, '');
+  const e = EXMAP[id];
+  if(!e) return;
+  card.classList.add('porBorrar');
+  const ok = await askConfirm(
+    `¿Quitar <b>${duoEsc(e.n)}</b> de ${duoEsc((DAYS[curIdx]||{}).title||'este día')}?<br><br>`+
+    `Se va del plan, pero <b>lo que ya registraste se queda</b> en Progreso.`,
+    'Sí, quitar', 'Quitar ejercicio');
+  card.classList.remove('porBorrar');
+  if(ok) quitarExDia(id);
+}
+
+/* Espejo de addExerciseToDay: si aquel refresca seis vistas, este tambien, o el
+   mapa de fatiga y el volumen semanal se quedan contando un ejercicio que ya no
+   esta en el plan. */
+function quitarExDia(id){
+  const plan = ensureEditablePlan(), dia = plan[curIdx];
+  if(!dia) return;
+  const i = dia.ex.findIndex(x=>x.id===id);
+  if(i<0) return;
+  if(dia.ex.length<=1){ toast('Es el único ejercicio del día'); return; }
+  const [fuera] = dia.ex.splice(i,1);
+  save(); rebuildPlanIndexes(); buildExerciseMedia(); buildProgSel();
+  renderDay(); renderProg(); renderOverview(); renderHeat(); renderPlanInfo(); renderVolSemanal();
+  const m=(fuera.mus||[])[0], v=planVolume(DAYS);
+  toast(`${fuera.n} fuera · ${MUSCLE_ES[m]||m}: ${v[m]||0} series/semana`);
 }
 
 function prefill(id){
@@ -15218,6 +15344,7 @@ addEventListener('hashchange', irPorHash);
 
 const _CAPAS = [
   ['askModal',     ()=>askResolve(false)],
+  ['proModal',     ()=>cerrarPro()],
   ['plateModal',   ()=>$("#plateModal").classList.remove("on")],
   ['bkModal',      ()=>$("#bkModal").classList.remove("on")],
   ['botModal',     ()=>botCerrar()],
@@ -15290,6 +15417,46 @@ addEventListener('popstate', () => {
    Con retraso porque el indice BM25 de los 1.022 articulos se construye la
    primera vez que se pide, y son ~20 ms que no queremos delante del primer
    pintado. */
+/* ==========  ATLAS PRO  ==========
+   Quita los anuncios. NO COBRA TODAVIA, y es a proposito:
+
+   1. En Android, cobrar por quitar anuncios obliga a usar Facturacion de Google
+      Play. Cualquier otra pasarela es motivo de retirada de la ficha.
+   2. La declaracion "Datos de inicio de sesion" que se envio a revision dice que
+      ningun contenido requiere pago. Meter un cobro la contradice.
+
+   Asi que el estado Pro existe y funciona de verdad -si esta puesto, no sale ni
+   un anuncio-, pero solo se puede activar desde fuera. Cuando se monte Play
+   Billing, lo unico que cambia es proComprar(): el resto ya esta.
+
+   Se guarda FUERA del perfil, en su propia clave: la suscripcion es del telefono
+   y de la cuenta de Google, no del atleta, y con dos perfiles en el mismo movil
+   no tendria sentido que uno tuviera anuncios y el otro no. */
+const PRO_KEY='atlas_pro';
+function esPro(){
+  try{ return localStorage.getItem(PRO_KEY)==='1'; }catch(e){ return false; }
+}
+function abrirPro(){
+  const caja=$("#proEstado");
+  if(caja) caja.innerHTML = esPro()
+    ? `<div class="proya">Ya eres Pro. No vas a ver anuncios.</div>`
+    : '';
+  $("#proModal").classList.add("on");
+}
+function cerrarPro(){ $("#proModal").classList.remove("on"); }
+/* Aqui va Play Billing cuando este montado. Mientras tanto dice la verdad en vez
+   de abrir un cobro que no existe: un boton de pago que no cobra es peor que no
+   tener boton, porque el que lo toca cree que ya ha pagado. */
+function proComprar(plan){
+  askConfirm(
+    `El pago todavía no está activo.<br><br>`+
+    `Para cobrar los ${plan==='ano'?'29,97 US$ al año':'2,99 US$ al mes'} hace falta `+
+    `montar <b>Facturación de Google Play</b> y cambiar la declaración de la ficha, `+
+    `que ahora mismo dice que la app no tiene contenido de pago.<br><br>`+
+    `Mientras tanto la app es gratis entera, con los dos anuncios al día.`,
+    'Entendido', 'Todavía no');
+}
+
 /* ==========  ANUNCIOS  ==========
    Dos intersticiales en un dia normal: uno al abrir el entrenamiento del dia y
    otro al cerrarlo. TRES si entrenas en duo: el de en medio sale al abrir el
@@ -15344,6 +15511,7 @@ async function adsInit(){
 /* Devuelve SIEMPRE, con anuncio o sin el. Lo que no puede pasar es que un fallo
    de red deje al usuario mirando una pantalla en blanco a medio entrenamiento. */
 async function adsMostrar(cual){
+  if(esPro()) return false;                 // Pro = sin anuncios, y punto
   if(!adsHay() || adsYaVisto(cual)) return false;
   const P=adsPlugin();
   try{
