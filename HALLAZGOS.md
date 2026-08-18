@@ -124,11 +124,23 @@ lección: más hallazgos no es mejor si no se pueden verificar.
 
 ## Cómo seguir
 
-1. **Subir la v2.1 (`versionCode 12`) a Play.** La que está en revisión es la
-   2.0, que NO lleva ninguno de estos arreglos.
-2. Los siete de gravedad media de la sección A.
-3. Volver a lanzar la batería A: quedó incompleta por abajo y hay áreas sin
+**Hecho:** la **v2.2 (`versionCode 13`)** está enviada a revisión con todos estos
+arreglos dentro, verificados en el propio `.aab`. La publicada sigue siendo la
+2.0 hasta que Google apruebe.
+
+Queda:
+
+1. Los siete de gravedad media de la sección A.
+2. Volver a lanzar la batería A: quedó incompleta por abajo y hay áreas sin
    agotar.
+3. `keystore.properties` con la contraseña en claro.
+
+### Nota sobre Play Console
+
+Esa consola tarda tanto en pintar la pantalla de versiones que llegué a leerla a
+medio cargar y creí que el bundle no se había adjuntado, cuando sí. Estuve
+reintentando algo que ya estaba hecho. Si vuelve a pasar: **esperar a que la
+página esté quieta antes de creerse lo que muestra.**
 
 Informes completos:
 `~/.claude/projects/…/subagents/workflows/wf_c0cc0b2b-696/` (A)
