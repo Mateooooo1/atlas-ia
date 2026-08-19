@@ -2394,10 +2394,20 @@ function loadProfile(name){
   LS = "recomp_v1_" + name;
   DB = leeFicha(LS);
   DB.logs = DB.logs||{}; DB.done = DB.done||{}; DB.body = DB.body||[]; DB.oneRM = DB.oneRM||{}; DB.photos = DB.photos||[]; DB.intake = DB.intake||{};
+  DB.fin = DB.fin||{};              // fechas con el dia sellado como terminado
   DB.profile = DB.profile||null; DB.plan = DB.plan||null;
   applyPlan();                      // usa el plan a medida de este usuario si lo tiene
 }
-const today = ()=>new Date().toISOString().slice(0,10);
+/* La fecha del USUARIO, no la de Greenwich. toISOString() da la fecha UTC, y en
+   Colombia (UTC-5) el dia UTC cambia a las 19:00 de la tarde: una sesion que
+   empezaba a las 18:40 y acababa a las 19:10 repartia sus marcas entre dos
+   fechas, ninguna de las dos llegaba a completar el dia, y el contador no subia
+   NUNCA. Ademas los chulitos ya puestos desaparecian de la pantalla al dar las
+   19:00, porque dayDoneCount() lee DB.done[today()] y today() ya apuntaba a otro
+   sitio. Restar el desfase antes de cortar deja la fecha local, que es la que ya
+   usaban curIdx (getDay) y rachaDias. */
+const today = ()=>{ const d=new Date();
+  return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 
 /* =====================  EJERCICIOS QUE SON EL MISMO MOVIMIENTO =====================
    El face pull aparece como w_facepull en un día y v_facepull en otro: mismo
@@ -2480,6 +2490,15 @@ function diaDelPlan(clave){
   return i<0 ? null : String(clave).slice(0,i);
 }
 function diaCompletado(fecha){
+  /* El sello manda. Se pone el dia que terminas y ya no se discute: si mañana
+     añades o quitas un ejercicio, el plan cambia pero lo que entrenaste ese dia
+     no. Sin esto se comparaban las marcas de ayer contra el plan de HOY, asi que
+     quitar un ejercicio regalaba dias viejos a medias y añadir uno borraba dias
+     ya ganados —el contador se movia solo, sin entrenar.
+     Las fechas anteriores al sello siguen contandose como antes, para no perder
+     el historial de quien ya venia usando la app. */
+  if((DB.fin||{})[fecha]) return true;
+  if(DB.__finMig) return false;      // historial ya sellado entero: el sello es la unica verdad
   const marcas=Object.keys((DB.done||{})[fecha]||{}).filter(k=>k!==claveDescanso());
   if(!marcas.length) return false;
   const porDia={};
@@ -2922,6 +2941,40 @@ function dayDoneCount(){
   const dm=DB.done[today()]||{}, d=DAYS[curIdx];
   return d.ex.filter(e=>dm[doneKey(d,e.id)]).length;
 }
+/* Sella el dia de hoy si esta entero, y lo dessella si dejas de estarlo. Va en un
+   mapa aparte y no como una clave mas dentro de DB.done[fecha] a proposito: hay
+   tres sitios que cuentan las claves de esa fecha para saber cuantos ejercicios
+   hiciste, y una clave de control les habria sumado uno de mas.
+   Se llama desde los dos unicos caminos que marcan un ejercicio —el chulito y
+   Guardar series— justo antes de save(), asi que es idempotente. */
+function sellaDia(){
+  const d=DAYS[curIdx]; if(!d) return;
+  const t=today(); DB.fin=DB.fin||{};
+  if(d.ex.length>0 && dayDoneCount()>=d.ex.length) DB.fin[t]=d.id;
+  else if(DB.fin[t]===d.id) delete DB.fin[t];
+}
+/* Los dias entrenados ANTES de que existiera el sello se sellan una sola vez, con
+   el valor que tienen hoy. Sin esto el historial viejo se quedaba a merced del
+   plan actual para siempre: quitar un ejercicio en enero seguiria regalando dias
+   de diciembre. Se congela lo que el usuario ya ve, no se recalcula nada. */
+function sellaHistorial(){
+  if(DB.__finMig) return;
+  DB.fin=DB.fin||{};
+  Object.keys(DB.done||{}).forEach(fecha=>{
+    if(DB.fin[fecha]) return;
+    const marcas=Object.keys(DB.done[fecha]||{}).filter(k=>k!==claveDescanso());
+    const porDia={};
+    marcas.forEach(k=>{ const d=diaDelPlan(k); if(d!==null) porDia[d]=(porDia[d]||0)+1; });
+    const id=Object.keys(porDia).find(id=>{
+      const dia=(DAYS||[]).find(d=>String(d.id)===id);
+      return !!dia && dia.ex.length>0 && porDia[id]>=dia.ex.length;
+    });
+    if(id) DB.fin[fecha]=id;
+  });
+  DB.__finMig=1;
+  /* No guarda: guarda quien la llama. Asi la bateria de pruebas puede sellar un
+     historial de mentira sin escribirlo encima del de verdad. */
+}
 function celebrate(){
   toast("¡"+DAYS[curIdx].short+" completado, "+PROFILE+"!");
   try{ if(navigator.vibrate) navigator.vibrate([90,60,90]); }catch(e){}
@@ -3058,6 +3111,7 @@ function toggleDone(id){
   const k=doneKey(DAYS[curIdx], id);                    // la marca es de ESTE día, no del ejercicio
   DB.done[t][k]=!DB.done[t][k];
   if(!DB.done[t][k]) delete DB.done[t][k];
+  sellaDia();
   save(); renderDay(); renderOverview();
   if(dayDoneCount()===total && before<total) celebrate();
 }
@@ -3229,6 +3283,7 @@ function saveLog(id,nsets,unit){
   DB.done[t]=DB.done[t]||{};
   const total=DAYS[curIdx].ex.length, before=dayDoneCount();
   DB.done[t][doneKey(DAYS[curIdx], id)]=true;
+  sellaDia();
   save();
   checkAutoreg(id, sets);           //  autorregulación por fatiga
   toast("Guardado ");
@@ -3831,6 +3886,7 @@ function dbSaneado(o){
   d.plan    = planLimpio(d.plan);
   d.logs    = esObjetoLlano(d.logs)  ? d.logs  : {};
   d.done    = esObjetoLlano(d.done)  ? d.done  : {};
+  d.fin     = esObjetoLlano(d.fin)   ? d.fin   : {};
   d.oneRM   = esObjetoLlano(d.oneRM) ? d.oneRM : {};
   d.profile = perfilSaneado(d.profile);
   /* El historial corporal se pinta crudo y solo necesita fecha y dos numeros. */
@@ -3856,7 +3912,9 @@ function cambiaDB(nuevo){
   if(teniaPlan && !traePlan) return false;                // el archivo te dejaba sin la que tenias
   try{
     DB=nuevo;
-    applyPlan();renderDayChips();renderDay();buildProgSel();renderProg();renderOverview();
+    applyPlan();
+    sellaHistorial();             // una copia vieja no trae sellos: se los ponemos al entrar
+    renderDayChips();renderDay();buildProgSel();renderProg();renderOverview();
     renderBody();renderOneRM();renderHeat();renderPlanInfo();renderIntake();
     save();                       // ultimo: solo se persiste lo que ya pinto bien
     return true;
@@ -14809,8 +14867,15 @@ function botSelfTest(){
   (function(){
     if(!DAYS.length || !DB.profile) return;
     const bakD=DB.done, bakL=DB.logs, bakW=DB.profile.weeks, bakC=DB.profile.createdAt;
-    const f=n=>{ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
-    DB.logs={}; DB.done={};
+    const bakF=DB.fin, bakM=DB.__finMig;
+    /* Misma cuenta de fechas que today(): local, no UTC. Con toISOString a secas
+       el test miraba un dia distinto del que mira la app a partir de las 19:00. */
+    const f=n=>{ const d=new Date(); d.setDate(d.getDate()-n);
+      return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+    /* El historial de prueba se inyecta crudo, asi que hay que sellarlo igual que
+       hace la app al abrirse. */
+    const sella=()=>{ DB.fin={}; delete DB.__finMig; sellaHistorial(); };
+    DB.logs={}; DB.done={}; sella();
     DB.profile.weeks=33; DB.profile.createdAt=f(30);
     ok(progresoPlan().total===33*DAYS.length, 'el total no son semanas x dias del plan');
     ok(progresoPlan().hechos===0, 'sin nada hecho el contador no arranca en cero');
@@ -14820,24 +14885,40 @@ function botSelfTest(){
        con la misma clave que usa la pantalla (doneKey), y ademas se comprueba
        que uno a medias NO suma. */
     const dia=DAYS[0], entero=()=>{ const m={}; dia.ex.forEach(e=>m[doneKey(dia,e.id)]=true); return m; };
-    DB.done={[f(1)]:entero(), [f(2)]:entero(), [f(3)]:entero()};
+    DB.done={[f(1)]:entero(), [f(2)]:entero(), [f(3)]:entero()}; sella();
     ok(progresoPlan().hechos===3, 'no cuenta bien los dias TERMINADOS');
     if(dia.ex.length>1){
-      DB.done[f(4)]={[doneKey(dia, dia.ex[0].id)]:true};        // solo uno: a medias
+      DB.done[f(4)]={[doneKey(dia, dia.ex[0].id)]:true}; sella();   // solo uno: a medias
       ok(progresoPlan().hechos===3, 'un dia a medias esta sumando al contador');
       delete DB.done[f(4)];
     }
     /* Un dia ANTERIOR a crear el perfil es de otro plan: no puede sumar. */
-    DB.done[f(90)]=entero();
+    DB.done[f(90)]=entero(); sella();
     ok(progresoPlan().hechos===3, 'esta contando dias de antes de crear el plan');
     /* El descanso tampoco: tiene su propia cuenta, la racha. */
-    DB.done[f(5)]={[claveDescanso()]:true};
+    DB.done[f(5)]={[claveDescanso()]:true}; sella();
     ok(progresoPlan().hechos===3, 'un dia de descanso esta sumando al contador');
+
+    /* EDITAR EL PLAN NO REESCRIBE EL PASADO. Antes, diaCompletado comparaba las
+       marcas de ayer contra el plan de HOY: quitar un ejercicio regalaba dias
+       viejos a medias y anadir uno borraba dias ya ganados. El sello lo congela. */
+    if(dia.ex.length>1){
+      DB.done={[f(1)]:entero(), [f(2)]:entero()}; sella();
+      const antes=progresoPlan().hechos;
+      const fuera=dia.ex.pop();
+      ok(progresoPlan().hechos===antes, 'quitar un ejercicio mueve el contador del pasado');
+      dia.ex.push(fuera);
+      dia.ex.push({id:'__test_extra__', name:'x', sr:'3x10'});
+      ok(progresoPlan().hechos===antes, 'anadir un ejercicio borra dias ya ganados');
+      dia.ex.pop();
+    }
     /* Y nunca puede pasarse del total, por muchos dias que haya. */
     DB.profile.weeks=1; DB.done={};
     for(let i=0;i<40;i++) DB.done[f(i)]=entero();
+    sella();
     ok(progresoPlan().hechos<=progresoPlan().total, 'el contador se pasa del total del plan');
     DB.done=bakD; DB.logs=bakL; DB.profile.weeks=bakW; DB.profile.createdAt=bakC;
+    DB.fin=bakF; if(bakM) DB.__finMig=bakM; else delete DB.__finMig;
   })();
 
   /* Selector con buscador. Lo que se protege: que el <select> oculto siga siendo
@@ -15709,6 +15790,7 @@ if(typeof durArrancar==='function') durArrancar().then(r=>{
 if(PROFILE && PROFILES[PROFILE]) loadProfile(PROFILE);
 migrarRegistros();          //  une los registros que estaban partidos por id duplicado
 migrarDone();               //  marcas de "hecho" antiguas: reasignarlas a su día
+sellaHistorial(); save();   //  congela los días ya terminados antes de que existiera el sello
 const _varCambios = aplicarVariacionSemanal();   //  rota ejercicios si toca semana nueva
 updateUserUI();
 renderDayChips();
