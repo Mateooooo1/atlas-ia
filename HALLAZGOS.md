@@ -1,4 +1,69 @@
-# Lo que encontraron los agentes · 17 ago 2026
+# Lo que encontraron los agentes
+
+## C · El contador de días · 18 ago 2026
+
+Queja: *«Sigue sin funcionar bien el contador. De los días.»*
+
+6 agentes con lentes distintas, obligados a reproducir con `node`. **Cinco de los
+seis llegaron al mismo sitio sin coordinarse.** Reproducido otra vez a mano antes
+de tocar nada.
+
+### La causa · commit `f33615a`
+
+**`today()` daba la fecha de Greenwich, no la suya.** Él entrena de tarde en
+Colombia (UTC−5), donde el día UTC cambia **a las 19:00**. Una sesión de 18:40 a
+19:10 repartía sus marcas entre dos fechas, ninguna completaba el día y el
+contador **no subía nunca**. Al dar las 19:00, además, los chulitos ya puestos
+desaparecían de la pantalla y no salía la tarjeta de cierre.
+
+Probado en el navegador, en `America/Bogota`, a las 23:31 del 18:
+
+| | fecha guardada |
+| --- | --- |
+| antes | `2026-08-19` ← mañana |
+| ahora | `2026-08-18` |
+
+Es la regresión que **introdujo el arreglo anterior**: con la regla vieja (bastaba
+una marca) el reparto en dos fechas daba igual e incluso inflaba el número; con la
+regla nueva (día entero) dejó de contar del todo.
+
+### Lo segundo, que salió buscando lo primero
+
+`diaCompletado` comparaba las marcas de **ayer** contra el plan de **hoy**, así que
+editar el plan reescribía el pasado sin entrenar:
+
+| | antes | ahora |
+| --- | --- | --- |
+| quitar un ejercicio | Día 0 → **Día 3** | Día 0 |
+| añadir un ejercicio | Día 2 → **Día 0** | Día 2 |
+
+Arreglado con un sello (`DB.fin`) que se pone al terminar el día y ya no se
+discute. `sellaHistorial()` congela una vez lo ya entrenado para no perder el
+historial, y corre también al importar una copia vieja. El sello va en un mapa
+aparte y no dentro de `DB.done[fecha]` **a propósito**: hay tres sitios que cuentan
+las claves de esa fecha y una clave de control les habría sumado un ejercicio.
+
+### Lo que NO se arregló
+
+Reproducido por los agentes, pero fuera de la queja y sin pasar por un escéptico
+(los verificadores murieron por límite de sesión):
+
+- Un perfil sin `profile.weeks` deja el total en `DAYS.length`: dice «Día 3 de 4»
+  en vez de «de 132» y se congela al llegar.
+- `swapExercise` deja huérfana la marca del ejercicio viejo: al cambiar de
+  ejercicio el avance de hoy retrocede («hoy 4/8» → «hoy 3/8»).
+- `migrarDone` reasigna una marca vieja al día equivocado si la rotación semanal
+  ya había cambiado ese ejercicio.
+
+### Aviso sobre la versión publicada
+
+**Ni la 2.0 (publicada) ni la 2.2 (en revisión) llevan este arreglo**; la 2.2 se
+compiló antes. Si sale tal cual, en su teléfono el contador pasará de subir de más
+a **no subir nunca**. Hace falta una **2.3**. La PWA de GitHub Pages ya lo tiene.
+
+---
+
+# Lo de antes · 17 ago 2026
 
 Dos baterías sobre `atlas_pwa/index.html` y `atlas_android/`: una de
 funcionamiento y otra de seguridad. Cada hallazgo pasó por agentes independientes
