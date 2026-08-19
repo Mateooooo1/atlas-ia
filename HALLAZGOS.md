@@ -57,9 +57,19 @@ Reproducido por los agentes, pero fuera de la queja y sin pasar por un escéptic
 
 ### Aviso sobre la versión publicada
 
-**Ni la 2.0 (publicada) ni la 2.2 (en revisión) llevan este arreglo**; la 2.2 se
-compiló antes. Si sale tal cual, en su teléfono el contador pasará de subir de más
-a **no subir nunca**. Hace falta una **2.3**. La PWA de GitHub Pages ya lo tiene.
+Corrección al informe anterior: **la 2.2 no está en revisión, está publicada**
+desde el 17 ago 21:35 («Disponible para determinados testers»). Eso encaja con la
+queja: en su teléfono corre la regla del día entero **con** el fallo de la fecha,
+que es justo el combo que deja el contador clavado.
+
+La **2.3 (`versionCode 14`)** ya está compilada y firmada con el arreglo dentro,
+verificado en el propio `.aab`:
+
+    atlas_android/android/app/build/outputs/bundle/release/app-release.aab
+
+Queda subirla a mano: son 18,4 MB y el puente del navegador corta en 10 MB, así
+que ese paso no se puede automatizar desde aquí. La PWA de GitHub Pages ya sirve
+el arreglo sin esperar a Google.
 
 ---
 
